@@ -1,0 +1,185 @@
+name: vaultix
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    container_name: vaultix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vaultix}
+      POSTGRES_USER: ${POSTGRES_USER:-vaultix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      TZ: ${TZ:-Asia/Seoul}
+    ports:
+      - "127.0.0.1:${VAULTIX_POSTGRES_PORT:-5440}:5432"
+    volumes:
+      - ${VAULTIX_POSTGRES_DATA:-/var/lib/vaultix/postgres}:/var/lib/postgresql/data
+    networks:
+      - vaultix_internal
+
+  redis:
+    image: redis:7-bookworm
+    container_name: vaultix-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${VAULTIX_REDIS_PORT:-6380}:6379"
+    volumes:
+      - ${VAULTIX_REDIS_DATA:-/var/lib/vaultix/redis}:/data
+    networks:
+      - vaultix_internal
+
+  api:
+    build:
+      context: ../apps/api
+    container_name: vaultix-api
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://vaultix:change-me@postgres:5432/vaultix}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      VAULTIX_ENV: ${VAULTIX_ENV:-development}
+    ports:
+      - "127.0.0.1:${VAULTIX_API_PORT:-8302}:8000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - vaultix_internal
+
+  celery:
+    build:
+      context: ../apps/api
+    container_name: vaultix-celery-image
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+    command:
+      - uv
+      - run
+      - --no-dev
+      - python
+      - -c
+      - "import time; print('vaultix celery placeholder'); time.sleep(31536000)"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - vaultix_internal
+
+  celery-beat:
+    build:
+      context: ../apps/api
+    container_name: vaultix-celery-beat
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+    command:
+      - uv
+      - run
+      - --no-dev
+      - python
+      - -c
+      - "import time; print('vaultix celery-beat placeholder'); time.sleep(31536000)"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - vaultix_internal
+
+  web:
+    build:
+      context: ../apps/web
+    container_name: vaultix-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8302}
+    ports:
+      - "127.0.0.1:${VAULTIX_WEB_PORT:-8301}:3000"
+    depends_on:
+      - api
+    networks:
+      - vaultix_internal
+
+  plausible-db:
+    image: postgres:17-bookworm
+    container_name: vaultix-plausible-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: plausible
+      POSTGRES_USER: plausible
+      POSTGRES_PASSWORD: ${PLAUSIBLE_POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - ${VAULTIX_PLAUSIBLE_DB_DATA:-/var/lib/vaultix/plausible/postgres}:/var/lib/postgresql/data
+    networks:
+      - vaultix_internal
+
+  plausible-clickhouse:
+    image: clickhouse/clickhouse-server:24.12
+    container_name: vaultix-plausible-clickhouse
+    restart: unless-stopped
+    volumes:
+      - ${VAULTIX_PLAUSIBLE_CLICKHOUSE_DATA:-/var/lib/vaultix/plausible/clickhouse}:/var/lib/clickhouse
+    networks:
+      - vaultix_internal
+
+  plausible:
+    image: ghcr.io/plausible/community-edition:v2.1.5
+    container_name: vaultix-plausible
+    restart: unless-stopped
+    environment:
+      BASE_URL: ${PLAUSIBLE_BASE_URL:-https://analytics.vaultix.example.com}
+      SECRET_KEY_BASE: ${PLAUSIBLE_SECRET_KEY_BASE:-change-me}
+      TOTP_VAULT_KEY: ${PLAUSIBLE_TOTP_VAULT_KEY:-change-me}
+      DATABASE_URL: postgres://plausible:${PLAUSIBLE_POSTGRES_PASSWORD:-change-me}@plausible-db:5432/plausible
+      CLICKHOUSE_DATABASE_URL: http://plausible-clickhouse:8123/plausible
+    ports:
+      - "127.0.0.1:${VAULTIX_PLAUSIBLE_PORT:-8303}:8000"
+    depends_on:
+      - plausible-db
+      - plausible-clickhouse
+    networks:
+      - vaultix_internal
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: vaultix-uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${VAULTIX_UPTIME_KUMA_PORT:-8305}:3001"
+    volumes:
+      - ${VAULTIX_UPTIME_KUMA_DATA:-/var/lib/vaultix/uptime-kuma}:/app/data
+    networks:
+      - vaultix_internal
+
+  listmonk:
+    image: listmonk/listmonk:v4.1.0
+    container_name: vaultix-listmonk
+    restart: unless-stopped
+    command: ["./listmonk", "--config", ""]
+    environment:
+      LISTMONK_app__address: 0.0.0.0:9000
+      LISTMONK_db__host: postgres
+      LISTMONK_db__port: 5432
+      LISTMONK_db__user: ${POSTGRES_USER:-vaultix}
+      LISTMONK_db__password: ${POSTGRES_PASSWORD:-change-me}
+      LISTMONK_db__database: ${POSTGRES_DB:-vaultix}
+      LISTMONK_db__ssl_mode: disable
+    ports:
+      - "127.0.0.1:${VAULTIX_LISTMONK_PORT:-8304}:9000"
+    depends_on:
+      - postgres
+    networks:
+      - vaultix_internal
+
+networks:
+  vaultix_internal:
+    name: vaultix_internal
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

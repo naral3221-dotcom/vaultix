@@ -19,6 +19,7 @@ venv/
 # Node
 node_modules/
 .next/
+.vite/
 dist/
 build/
 coverage/
@@ -43,3 +44,5 @@ Thumbs.db
 *.gif
 *.mp4
 *.mov
+/assets/
+/uploads/
