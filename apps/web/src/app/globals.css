@@ -475,6 +475,68 @@ input {
   font-weight: 750;
 }
 
+.auth-page {
+  min-height: 100dvh;
+  width: min(520px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 30px 0 80px;
+}
+
+.auth-panel {
+  margin-top: 56px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  box-shadow: var(--shadow-soft);
+  padding: 28px;
+}
+
+.auth-panel h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.2;
+}
+
+.auth-panel > p:not(.eyebrow),
+.auth-footer {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.auth-form label {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.auth-form input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.auth-form button {
+  min-height: 46px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+}
+
+.auth-footer a {
+  color: var(--primary);
+  font-weight: 800;
+}
+
 .catalog-page,
 .asset-detail-page {
   width: min(1180px, calc(100% - 40px));

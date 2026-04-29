@@ -30,7 +30,7 @@ export default function HomePage() {
           <a href="/newsletter">뉴스레터</a>
         </nav>
         <div className="header-actions">
-          <a className="ghost-link" href="/auth/login">
+          <a className="ghost-link" href="/auth/signin">
             로그인
           </a>
           <a className="primary-link" href="/auth/signup">

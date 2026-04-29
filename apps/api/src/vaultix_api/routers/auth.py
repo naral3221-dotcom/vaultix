@@ -1,0 +1,69 @@
+from datetime import UTC, datetime, timedelta
+import re
+import secrets
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from vaultix_api.deps import get_db, problem
+from vaultix_api.models.core import EmailVerification, User
+from vaultix_api.services.passwords import hash_password
+
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str | None = None
+    locale: str = "ko"
+    turnstile_token: str
+
+
+@router.post("/signup", status_code=201)
+def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    email = payload.email.strip()
+    email_lower = email.lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email_lower):
+        raise problem(400, "validation_error", "Validation error", "올바른 이메일 주소를 입력해 주세요.")
+    if len(payload.password) < 8 or not any(char.isdigit() for char in payload.password):
+        raise problem(400, "validation_error", "Validation error", "비밀번호는 8자 이상이며 숫자를 포함해야 합니다.")
+
+    existing_user = db.query(User).filter(User.email_lower == email_lower).first()
+    if existing_user is not None:
+        raise problem(409, "conflict", "Conflict", "이미 가입된 이메일입니다.")
+
+    next_user_id = int(db.query(func.coalesce(func.max(User.id), 0)).scalar() or 0) + 1
+    next_token_id = int(db.query(func.coalesce(func.max(EmailVerification.id), 0)).scalar() or 0) + 1
+    user = User(
+        id=next_user_id,
+        email=email,
+        email_lower=email_lower,
+        password_hash=hash_password(payload.password),
+        display_name=payload.display_name,
+        locale=payload.locale,
+        status="active",
+    )
+    db.add(user)
+    db.flush()
+
+    verification = EmailVerification(
+        id=next_token_id,
+        user_id=next_user_id,
+        token=secrets.token_urlsafe(48)[:64],
+        expires_at=datetime.now(UTC) + timedelta(hours=24),
+    )
+    db.add(verification)
+    db.commit()
+
+    return {
+        "data": {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "email_verified": False,
+            }
+        }
+    }
