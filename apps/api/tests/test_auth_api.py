@@ -97,3 +97,41 @@ def test_signup_rejects_password_without_number(client: TestClient):
 
     assert response.status_code == 400
     assert response.json()["code"] == "validation_error"
+
+
+def test_verify_email_marks_user_verified_and_consumes_token(client: TestClient):
+    client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "user@example.com",
+            "password": "password1",
+            "display_name": "박지원",
+            "locale": "ko",
+            "turnstile_token": "dev-token",
+        },
+    )
+    with client.app.state.test_sessionmaker() as session:
+        token = session.query(EmailVerification).one().token
+
+    response = client.post("/api/v1/auth/verify-email", json={"token": token})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {"verified": True, "user_id": 1}
+
+    with client.app.state.test_sessionmaker() as session:
+        user = session.query(User).filter(User.id == 1).one()
+        verification = session.query(EmailVerification).filter(EmailVerification.token == token).one()
+        assert user.email_verified_at is not None
+        assert verification.used_at is not None
+
+    replay_response = client.post("/api/v1/auth/verify-email", json={"token": token})
+
+    assert replay_response.status_code == 410
+    assert replay_response.json()["code"] == "verification_token_invalid"
+
+
+def test_verify_email_rejects_missing_token(client: TestClient):
+    response = client.post("/api/v1/auth/verify-email", json={"token": "missing-token"})
+
+    assert response.status_code == 410
+    assert response.json()["code"] == "verification_token_invalid"

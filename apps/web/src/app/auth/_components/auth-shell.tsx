@@ -5,9 +5,10 @@ type AuthShellProps = {
   description: string;
   submitLabel: string;
   footer: ReactNode;
+  form?: ReactNode;
 };
 
-export function AuthShell({ title, description, submitLabel, footer }: AuthShellProps) {
+export function AuthShell({ title, description, submitLabel, footer, form }: AuthShellProps) {
   return (
     <main className="auth-page">
       <a className="simple-back" href="/">
@@ -18,27 +19,29 @@ export function AuthShell({ title, description, submitLabel, footer }: AuthShell
         <h1>{title}</h1>
         <p>{description}</p>
 
-        <form className="auth-form">
-          <label htmlFor={`${submitLabel}-email`}>이메일</label>
-          <input id={`${submitLabel}-email`} name="email" type="email" autoComplete="email" />
+        {form ?? (
+          <form className="auth-form">
+            <label htmlFor={`${submitLabel}-email`}>이메일</label>
+            <input id={`${submitLabel}-email`} name="email" type="email" autoComplete="email" />
 
-          <label htmlFor={`${submitLabel}-password`}>비밀번호</label>
-          <input
-            id={`${submitLabel}-password`}
-            name="password"
-            type="password"
-            autoComplete={submitLabel === "가입하기" ? "new-password" : "current-password"}
-          />
+            <label htmlFor={`${submitLabel}-password`}>비밀번호</label>
+            <input
+              id={`${submitLabel}-password`}
+              name="password"
+              type="password"
+              autoComplete={submitLabel === "가입하기" ? "new-password" : "current-password"}
+            />
 
-          {submitLabel === "가입하기" ? (
-            <>
-              <label htmlFor="signup-display-name">이름</label>
-              <input id="signup-display-name" name="display_name" type="text" autoComplete="name" />
-            </>
-          ) : null}
+            {submitLabel === "가입하기" ? (
+              <>
+                <label htmlFor="signup-display-name">이름</label>
+                <input id="signup-display-name" name="display_name" type="text" autoComplete="name" />
+              </>
+            ) : null}
 
-          <button type="button">{submitLabel}</button>
-        </form>
+            <button type="button">{submitLabel}</button>
+          </form>
+        )}
 
         <div className="auth-footer">{footer}</div>
       </section>

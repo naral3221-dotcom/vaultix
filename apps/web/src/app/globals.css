@@ -532,6 +532,29 @@ input {
   font-weight: 800;
 }
 
+.auth-form button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.auth-message {
+  margin: 4px 0 0;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 10px 12px;
+}
+
+.auth-message.success {
+  background: rgba(5, 150, 105, 0.1);
+  color: #047857;
+}
+
+.auth-message.error {
+  background: rgba(225, 29, 72, 0.1);
+  color: #be123c;
+}
+
 .auth-footer a {
   color: var(--primary);
   font-weight: 800;

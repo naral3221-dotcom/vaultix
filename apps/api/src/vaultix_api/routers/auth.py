@@ -22,6 +22,10 @@ class SignupRequest(BaseModel):
     turnstile_token: str
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
 @router.post("/signup", status_code=201)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, object]:
     email = payload.email.strip()
@@ -67,3 +71,39 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, o
             }
         }
     }
+
+
+@router.post("/verify-email")
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    now = datetime.now(UTC)
+    verification = (
+        db.query(EmailVerification)
+        .filter(
+            EmailVerification.token == payload.token,
+            EmailVerification.used_at.is_(None),
+            EmailVerification.expires_at > now,
+        )
+        .first()
+    )
+    if verification is None:
+        raise problem(
+            410,
+            "verification_token_invalid",
+            "Verification token invalid",
+            "인증 링크가 만료되었거나 이미 사용되었습니다.",
+        )
+
+    user = db.query(User).filter(User.id == verification.user_id, User.status == "active").first()
+    if user is None:
+        raise problem(
+            410,
+            "verification_token_invalid",
+            "Verification token invalid",
+            "인증 링크가 만료되었거나 이미 사용되었습니다.",
+        )
+
+    user.email_verified_at = now
+    verification.used_at = now
+    db.commit()
+
+    return {"data": {"verified": True, "user_id": user.id}}
