@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "Vaultix API"
     env: str = "development"
     version: str = "0.1.0"
+    database_url: str = "postgresql+psycopg://vaultix:change-me@localhost:5440/vaultix"
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
