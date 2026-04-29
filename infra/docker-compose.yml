@@ -97,6 +97,7 @@ services:
     container_name: vaultix-web
     restart: unless-stopped
     environment:
+      VAULTIX_API_INTERNAL_URL: ${VAULTIX_API_INTERNAL_URL:-http://api:8000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8302}
     ports:
       - "127.0.0.1:${VAULTIX_WEB_PORT:-8301}:3000"

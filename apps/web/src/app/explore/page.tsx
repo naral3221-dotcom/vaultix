@@ -1,20 +1,20 @@
-import { PublicPageShell } from "../_components/public-page-shell";
+import { getAssets, getCategories } from "../_lib/api";
+import { ExploreView } from "./explore-view";
 
-export default function ExplorePage() {
-  return (
-    <PublicPageShell
-      eyebrow="Explore"
-      title="탐색"
-      description="한국어 업무용 이미지 자산을 카테고리와 목적별로 탐색하는 공간입니다."
-    >
-      <div className="placeholder-grid">
-        {["비즈니스", "마케팅", "보고서", "SNS", "채용", "교육"].map((item) => (
-          <a className="placeholder-card" href="/explore" key={item}>
-            {item}
-          </a>
-        ))}
-      </div>
-    </PublicPageShell>
-  );
+type ExplorePageProps = {
+  searchParams?: {
+    category?: string;
+  };
+};
+
+export const dynamic = "force-dynamic";
+
+export default async function ExplorePage({ searchParams }: ExplorePageProps) {
+  const selectedCategory = searchParams?.category;
+  const [categories, assets] = await Promise.all([
+    getCategories(),
+    getAssets({ category: selectedCategory, limit: 24 }),
+  ]);
+
+  return <ExploreView assets={assets} categories={categories} selectedCategory={selectedCategory} />;
 }
-
