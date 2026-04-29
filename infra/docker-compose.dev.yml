@@ -1,0 +1,28 @@
+services:
+  postgres:
+    volumes:
+      - vaultix_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    volumes:
+      - vaultix_redis_data:/data
+
+  plausible-db:
+    volumes:
+      - vaultix_plausible_postgres_data:/var/lib/postgresql/data
+
+  plausible-clickhouse:
+    volumes:
+      - vaultix_plausible_clickhouse_data:/var/lib/clickhouse
+
+  uptime-kuma:
+    volumes:
+      - vaultix_uptime_kuma_data:/app/data
+
+volumes:
+  vaultix_postgres_data:
+  vaultix_redis_data:
+  vaultix_plausible_postgres_data:
+  vaultix_plausible_clickhouse_data:
+  vaultix_uptime_kuma_data:
+

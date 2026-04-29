@@ -56,6 +56,17 @@ Compose validation:
 docker compose -f infra/docker-compose.yml config
 ```
 
+Local Compose stack:
+
+```bash
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d postgres redis
+cd apps/api
+DATABASE_URL=postgresql+psycopg://vaultix:change-me@localhost:5440/vaultix uv run alembic upgrade head
+cd ../..
+docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d api web
+infra/scripts/healthcheck.sh
+```
+
 The default local ports follow the Phase 0 plan:
 
 - Web: `127.0.0.1:8301`
