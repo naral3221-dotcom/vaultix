@@ -1,4 +1,5 @@
 import type { AssetDetail } from "../../_lib/api";
+import { DownloadAction } from "./download-action";
 
 type AssetDetailViewProps = {
   asset: AssetDetail;
@@ -35,13 +36,10 @@ export function AssetDetailView({ asset }: AssetDetailViewProps) {
             <a href={asset.license_summary_url}>라이선스 전체 보기</a>
           </div>
 
-          <a className="download-cta" href="/auth/signup">
-            다운로드 준비 중
-          </a>
+          <DownloadAction assetId={asset.id} />
           <p className="download-meta">다운로드 {asset.stats.downloads}회 · 이메일 인증 후 다운로드 흐름이 연결됩니다.</p>
         </div>
       </section>
     </main>
   );
 }
-

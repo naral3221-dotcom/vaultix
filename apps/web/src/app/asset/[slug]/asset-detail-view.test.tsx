@@ -25,10 +25,6 @@ describe("AssetDetailView", () => {
 
     expect(screen.getByRole("heading", { name: "비즈니스 미팅 일러스트" })).toBeInTheDocument();
     expect(screen.getByText("영구 사용 가능")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "다운로드 준비 중" })).toHaveAttribute(
-      "href",
-      "/auth/signup",
-    );
+    expect(screen.getByRole("button", { name: "다운로드" })).toBeInTheDocument();
   });
 });
-
