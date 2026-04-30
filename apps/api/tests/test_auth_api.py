@@ -199,6 +199,54 @@ def test_signup_sends_verification_email_when_resend_is_configured(
     assert "https://vaultix.example.com/auth/verify?token=" in sent[0]["html"]
 
 
+def test_signup_assigns_admin_role_for_configured_admin_email(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("ADMIN_EMAILS", "admin@example.com, owner@example.com")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "Admin@Example.com",
+            "password": "password1",
+            "display_name": "관리자",
+            "locale": "ko",
+            "turnstile_token": "dev-token",
+        },
+    )
+
+    assert response.status_code == 201
+    with client.app.state.test_sessionmaker() as session:
+        user = session.query(User).filter(User.email_lower == "admin@example.com").one()
+        assert user.role == "admin"
+
+
+def test_login_promotes_configured_admin_email(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "owner@example.com",
+            "password": "password1",
+            "display_name": "소유자",
+            "locale": "ko",
+            "turnstile_token": "dev-token",
+        },
+    )
+    monkeypatch.setenv("ADMIN_EMAILS", "owner@example.com")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com", "password": "password1"},
+    )
+
+    assert response.status_code == 200
+    with client.app.state.test_sessionmaker() as session:
+        user = session.query(User).filter(User.email_lower == "owner@example.com").one()
+        assert user.role == "admin"
+
+
 def test_verify_email_rejects_missing_token(client: TestClient):
     response = client.post("/api/v1/auth/verify-email", json={"token": "missing-token"})
 

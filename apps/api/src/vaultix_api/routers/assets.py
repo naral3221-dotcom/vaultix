@@ -1,12 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from pydantic import BaseModel
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import get_db
-from vaultix_api.models.core import Asset, Category
+from vaultix_api.models.core import Asset, AssetReport, Category
 from vaultix_api.routers.serializers import asset_to_card, asset_to_detail
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"])
+
+REPORT_REASONS = {"copyright", "inappropriate", "broken_file", "other"}
+
+
+class AssetReportRequest(BaseModel):
+    reason: str
+    message: str | None = None
 
 
 @router.get("")
@@ -50,3 +58,30 @@ def get_asset(slug_or_id: str, db: Session = Depends(get_db)) -> dict[str, objec
         raise HTTPException(status_code=404, detail="asset_not_found")
     return {"data": asset_to_detail(asset, db)}
 
+
+@router.post("/{asset_id}/report", status_code=201)
+def report_asset(asset_id: int, payload: AssetReportRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    if payload.reason not in REPORT_REASONS:
+        raise HTTPException(status_code=400, detail="invalid_report_reason")
+    asset = db.get(Asset, asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="asset_not_found")
+
+    report = AssetReport(
+        id=int(db.query(func.coalesce(func.max(AssetReport.id), 0)).scalar() or 0) + 1,
+        asset_id=asset.id,
+        reason=payload.reason,
+        message=payload.message,
+        status="open",
+    )
+    db.add(report)
+    db.commit()
+    return {
+        "data": {
+            "id": report.id,
+            "asset_id": report.asset_id,
+            "reason": report.reason,
+            "message": report.message,
+            "status": report.status,
+        }
+    }

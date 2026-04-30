@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from vaultix_api.deps import get_db, problem
 from vaultix_api.models.core import EmailVerification, PasswordReset, Session as UserSession, User
+from vaultix_api.services.admins import is_configured_admin_email
 from vaultix_api.services.email_delivery import (
     build_reset_url,
     build_verify_url,
@@ -96,6 +97,7 @@ def signup(
         display_name=payload.display_name,
         locale=payload.locale,
         status="active",
+        role="admin" if is_configured_admin_email(email_lower, settings.admin_emails) else "member",
     )
     db.add(user)
     db.flush()
@@ -270,6 +272,8 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         expires=datetime.now(UTC) + timedelta(days=30),
     )
     user.last_login_at = datetime.now(UTC)
+    if is_configured_admin_email(user.email_lower, get_settings().admin_emails):
+        user.role = "admin"
     db.add(session)
     db.commit()
 

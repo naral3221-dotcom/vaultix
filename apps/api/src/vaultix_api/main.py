@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 
-from vaultix_api.routers import assets, auth, downloads, meta
+from vaultix_api.routers import admin, assets, auth, downloads, meta
 from vaultix_api.settings import get_settings
 
 app = FastAPI(title="Vaultix API")
@@ -10,6 +10,7 @@ app.include_router(meta.router)
 app.include_router(assets.router)
 app.include_router(downloads.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 @app.exception_handler(HTTPException)

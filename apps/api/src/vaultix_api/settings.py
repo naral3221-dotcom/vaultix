@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     resend_api_key: str = Field(default="", validation_alias="RESEND_API_KEY")
     mail_from: str = Field(default="", validation_alias="MAIL_FROM")
     turnstile_secret_key: str = Field(default="", validation_alias="TURNSTILE_SECRET_KEY")
+    admin_emails: str = Field(default="", validation_alias="ADMIN_EMAILS")
 
 
 @lru_cache

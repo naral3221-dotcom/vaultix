@@ -19,8 +19,10 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'suspended', 'deleted')", name="ck_users_status"),
+        CheckConstraint("role IN ('member', 'admin')", name="ck_users_role"),
         Index("idx_users_created_at", "created_at"),
         Index("idx_users_status", "status"),
+        Index("idx_users_role", "role"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -30,6 +32,7 @@ class User(TimestampMixin, Base):
     display_name: Mapped[str | None] = mapped_column(String(60))
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="ko")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="member")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -159,3 +162,39 @@ class AssetTag(Base):
         ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True
     )
     tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+
+
+class AssetReport(TimestampMixin, Base):
+    __tablename__ = "asset_reports"
+    __table_args__ = (
+        CheckConstraint(
+            "reason IN ('copyright','inappropriate','broken_file','other')",
+            name="ck_asset_reports_reason",
+        ),
+        CheckConstraint("status IN ('open','resolved','dismissed')", name="ck_asset_reports_status"),
+        Index("idx_asset_reports_status_created", "status", "created_at"),
+        Index("idx_asset_reports_asset", "asset_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    reporter_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("idx_audit_logs_actor_created", "actor_user_id", "created_at"),
+        Index("idx_audit_logs_target", "target_type", "target_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    action: Mapped[str] = mapped_column(String(80), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    metadata_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

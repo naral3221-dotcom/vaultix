@@ -20,6 +20,7 @@ class CurrentUser:
     id: int
     email_lower: str
     email_verified_at: datetime | None
+    role: str = "member"
 
 
 def problem(status_code: int, code: str, title: str, detail: str) -> HTTPException:
@@ -64,6 +65,7 @@ def require_user(
         id=user.id,
         email_lower=user.email_lower,
         email_verified_at=user.email_verified_at,
+        role=user.role,
     )
 
 
@@ -75,4 +77,10 @@ def require_verified_user(user: CurrentUser = Depends(require_user)) -> CurrentU
             "Email not verified",
             "이메일 인증 후 다운로드할 수 있습니다.",
         )
+    return user
+
+
+def require_admin_user(user: CurrentUser = Depends(require_user)) -> CurrentUser:
+    if user.role != "admin":
+        raise problem(403, "admin_required", "Admin required", "관리자 권한이 필요합니다.")
     return user

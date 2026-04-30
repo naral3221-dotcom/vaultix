@@ -45,6 +45,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     ports:
       - "127.0.0.1:${VAULTIX_API_PORT:-8302}:8000"
     depends_on:

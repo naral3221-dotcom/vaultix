@@ -14,6 +14,8 @@ def test_phase_one_core_tables_are_registered():
         "assets",
         "asset_files",
         "asset_tags",
+        "asset_reports",
+        "audit_logs",
     }.issubset(Base.metadata.tables)
 
 
@@ -24,3 +26,4 @@ def test_alembic_initial_revision_exists():
     assert (api_root / "alembic" / "env.py").exists()
     assert (api_root / "alembic" / "versions" / "0001_init_users_assets.py").exists()
     assert (api_root / "alembic" / "versions" / "0002_add_auth_token_tables.py").exists()
+    assert (api_root / "alembic" / "versions" / "0003_add_admin_review_tables.py").exists()
