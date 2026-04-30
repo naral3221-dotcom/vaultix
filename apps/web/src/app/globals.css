@@ -721,7 +721,7 @@ input {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
   gap: 42px;
-  align-items: start;
+  align-items: flex-start;
   margin-top: 42px;
 }
 
@@ -922,6 +922,107 @@ input {
   border-radius: 8px;
   background: var(--bg-surface);
   padding: 10px 12px;
+}
+
+.admin-roadmap-link {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--primary);
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.roadmap-summary {
+  margin-top: 24px;
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  padding: 14px 16px;
+}
+
+.roadmap-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.roadmap-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  padding: 16px;
+}
+
+.roadmap-card.active {
+  border-color: rgba(79, 70, 229, 0.42);
+}
+
+.roadmap-card-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.roadmap-card-header span,
+.roadmap-list h3 {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.roadmap-card-header h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.roadmap-card-header strong {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.roadmap-meter {
+  height: 8px;
+  overflow: hidden;
+  margin: 14px 0;
+  border-radius: 999px;
+  background: var(--bg-muted);
+}
+
+.roadmap-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.roadmap-list {
+  margin-top: 12px;
+}
+
+.roadmap-list h3 {
+  margin: 0 0 6px;
+}
+
+.roadmap-list ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.roadmap-list li,
+.roadmap-list p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .sr-only {

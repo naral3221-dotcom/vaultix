@@ -12,5 +12,6 @@ describe("AdminPage", () => {
     render(<AdminPage />);
 
     expect(screen.getByRole("heading", { name: "관리자 작업대" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "로드맵" })).toHaveAttribute("href", "/admin/roadmap");
   });
 });
