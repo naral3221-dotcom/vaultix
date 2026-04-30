@@ -3,15 +3,25 @@ from hashlib import sha256
 import re
 import secrets
 
-from fastapi import APIRouter, Cookie, Depends, Response
+import httpx
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import get_db, problem
 from vaultix_api.models.core import EmailVerification, PasswordReset, Session as UserSession, User
+from vaultix_api.services.email_delivery import (
+    build_reset_url,
+    build_verify_url,
+    reset_email_html,
+    send_transactional_email,
+    verification_email_html,
+)
+from vaultix_api.services.email_domains import is_disposable_email
 from vaultix_api.services.passwords import hash_password, verify_password
-from vaultix_api.settings import get_settings
+from vaultix_api.services.turnstile import verify_turnstile
+from vaultix_api.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -43,13 +53,34 @@ class ResetPasswordRequest(BaseModel):
 
 
 @router.post("/signup", status_code=201)
-def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+def signup(
+    payload: SignupRequest, request: Request, db: Session = Depends(get_db)
+) -> dict[str, object]:
+    settings = get_settings()
     email = payload.email.strip()
     email_lower = email.lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email_lower):
         raise problem(400, "validation_error", "Validation error", "올바른 이메일 주소를 입력해 주세요.")
+    if is_disposable_email(email_lower):
+        raise problem(
+            400,
+            "disposable_email_blocked",
+            "Disposable email blocked",
+            "일회용 이메일 주소로는 가입할 수 없습니다.",
+        )
     if len(payload.password) < 8 or not any(char.isdigit() for char in payload.password):
         raise problem(400, "validation_error", "Validation error", "비밀번호는 8자 이상이며 숫자를 포함해야 합니다.")
+    if not verify_turnstile(
+        settings.turnstile_secret_key,
+        payload.turnstile_token,
+        request.client.host if request.client else None,
+    ):
+        raise problem(
+            400,
+            "turnstile_failed",
+            "Turnstile failed",
+            "보안 확인을 완료하지 못했습니다.",
+        )
 
     existing_user = db.query(User).filter(User.email_lower == email_lower).first()
     if existing_user is not None:
@@ -77,6 +108,12 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, o
     )
     db.add(verification)
     db.commit()
+    _send_email_or_raise(
+        to=user.email,
+        subject="Vaultix 이메일 인증",
+        html=verification_email_html(build_verify_url(settings.public_site_url, verification.token)),
+        settings=settings,
+    )
 
     return {
         "data": {
@@ -107,6 +144,7 @@ def logout(
 
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    settings = get_settings()
     email_lower = payload.email.strip().lower()
     user = db.query(User).filter(User.email_lower == email_lower, User.status == "active").first()
     response: dict[str, object] = {"data": {"sent": True}}
@@ -123,8 +161,14 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     )
     db.add(reset)
     db.commit()
+    _send_email_or_raise(
+        to=user.email,
+        subject="Vaultix 비밀번호 재설정",
+        html=reset_email_html(build_reset_url(settings.public_site_url, raw_token)),
+        settings=settings,
+    )
     # Until Resend is wired, expose this only outside production for local/Tailnet smoke flows.
-    if get_settings().env != "production":
+    if settings.env != "production":
         response["data"] = {"sent": True, "reset_token": raw_token}
     return response
 
@@ -246,3 +290,21 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
             }
         }
     }
+
+
+def _send_email_or_raise(*, to: str, subject: str, html: str, settings: Settings) -> None:
+    try:
+        send_transactional_email(
+            api_key=settings.resend_api_key,
+            from_email=settings.mail_from,
+            to=to,
+            subject=subject,
+            html=html,
+        )
+    except httpx.HTTPError as exc:
+        raise problem(
+            502,
+            "email_delivery_failed",
+            "Email delivery failed",
+            "메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        ) from exc

@@ -532,6 +532,11 @@ input {
   font-weight: 800;
 }
 
+.turnstile-box {
+  min-height: 65px;
+  overflow: hidden;
+}
+
 .auth-secondary-button {
   min-height: 40px;
   border: 1px solid var(--border);

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import Script from "next/script";
+import { FormEvent, useEffect, useId, useState } from "react";
 
 type SubmitState = {
   message: string | null;
@@ -10,6 +11,24 @@ type SubmitState = {
 export function SignupForm() {
   const [state, setState] = useState<SubmitState>({ message: null, kind: "idle" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("dev-token");
+  const turnstileInputId = useId();
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+  useEffect(() => {
+    if (!siteKey) {
+      setTurnstileToken("dev-token");
+      return;
+    }
+
+    window.vaultixOnTurnstileVerified = (token: string) => setTurnstileToken(token);
+    window.vaultixOnTurnstileExpired = () => setTurnstileToken("");
+
+    return () => {
+      delete window.vaultixOnTurnstileVerified;
+      delete window.vaultixOnTurnstileExpired;
+    };
+  }, [siteKey]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,7 +45,7 @@ export function SignupForm() {
           password: String(form.get("password") ?? ""),
           display_name: String(form.get("display_name") ?? ""),
           locale: "ko",
-          turnstile_token: "dev-token",
+          turnstile_token: String(form.get("turnstile_token") ?? turnstileToken),
         }),
       });
       const payload = await response.json();
@@ -53,6 +72,28 @@ export function SignupForm() {
       <label htmlFor="signup-display-name">이름</label>
       <input id="signup-display-name" name="display_name" type="text" autoComplete="name" />
 
+      <label className="sr-only" htmlFor={turnstileInputId}>
+        보안 확인 토큰
+      </label>
+      <input
+        id={turnstileInputId}
+        name="turnstile_token"
+        type="hidden"
+        value={turnstileToken}
+        onChange={(event) => setTurnstileToken(event.currentTarget.value)}
+      />
+      {siteKey ? (
+        <>
+          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+          <div
+            className="turnstile-box cf-turnstile"
+            data-sitekey={siteKey}
+            data-callback="vaultixOnTurnstileVerified"
+            data-expired-callback="vaultixOnTurnstileExpired"
+          />
+        </>
+      ) : null}
+
       <button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "처리 중" : "가입하기"}
       </button>
@@ -64,4 +105,11 @@ export function SignupForm() {
       ) : null}
     </form>
   );
+}
+
+declare global {
+  interface Window {
+    vaultixOnTurnstileVerified?: (token: string) => void;
+    vaultixOnTurnstileExpired?: () => void;
+  }
 }

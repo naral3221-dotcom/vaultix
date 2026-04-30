@@ -15,6 +15,12 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
     redis_url: str = Field(default="redis://localhost:6380/0", validation_alias="REDIS_URL")
+    public_site_url: str = Field(
+        default="http://127.0.0.1:8301", validation_alias="PUBLIC_SITE_URL"
+    )
+    resend_api_key: str = Field(default="", validation_alias="RESEND_API_KEY")
+    mail_from: str = Field(default="", validation_alias="MAIL_FROM")
+    turnstile_secret_key: str = Field(default="", validation_alias="TURNSTILE_SECRET_KEY")
 
 
 @lru_cache

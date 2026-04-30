@@ -41,6 +41,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://vaultix:change-me@postgres:5432/vaultix}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       VAULTIX_ENV: ${VAULTIX_ENV:-development}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://127.0.0.1:8301}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     ports:
       - "127.0.0.1:${VAULTIX_API_PORT:-8302}:8000"
     depends_on:
@@ -99,6 +103,7 @@ services:
     environment:
       VAULTIX_API_INTERNAL_URL: ${VAULTIX_API_INTERNAL_URL:-http://api:8000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8302}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     ports:
       - "127.0.0.1:${VAULTIX_WEB_PORT:-8301}:3000"
     depends_on:
