@@ -20,11 +20,21 @@ type AdminReport = {
   status: string;
 };
 
+type AuditLog = {
+  id: number;
+  actor_user_id: number | null;
+  action: string;
+  target_type: string;
+  target_id: number;
+  metadata: Record<string, unknown> | null;
+};
+
 type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function AdminDashboard() {
   const [assets, setAssets] = useState<AdminAsset[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -36,16 +46,33 @@ export function AdminDashboard() {
     setState("loading");
     setMessage(null);
     try {
-      const [assetPayload, reportPayload] = await Promise.all([
+      const [assetPayload, reportPayload, auditPayload] = await Promise.all([
         getAdminJson<{ data: AdminAsset[] }>("/api/v1/admin/assets?status=inbox"),
         getAdminJson<{ data: AdminReport[] }>("/api/v1/admin/reports"),
+        getAdminJson<{ data: AuditLog[] }>("/api/v1/admin/audit-logs"),
       ]);
       setAssets(assetPayload.data);
       setReports(reportPayload.data);
+      setAuditLogs(auditPayload.data);
       setState("ready");
     } catch {
       setMessage("관리자 데이터를 불러오지 못했습니다.");
       setState("error");
+    }
+  }
+
+  async function resolveReport(reportId: number) {
+    setMessage(null);
+    try {
+      const payload = await getAdminJson<{ data: AdminReport }>(`/api/v1/admin/reports/${reportId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "resolved", reason: "관리자 해결" }),
+      });
+      setReports((current) => current.map((report) => (report.id === reportId ? payload.data : report)));
+      setMessage("신고를 해결 처리했습니다.");
+    } catch {
+      setMessage("신고 처리에 실패했습니다.");
     }
   }
 
@@ -108,9 +135,32 @@ export function AdminDashboard() {
               </div>
               <span>{report.reason}</span>
               <span>{report.status}</span>
+              <button type="button" onClick={() => resolveReport(report.id)}>
+                해결
+              </button>
             </div>
           ))}
           {state === "ready" && reports.length === 0 ? <p className="admin-muted">열린 신고가 없습니다.</p> : null}
+        </div>
+      </section>
+
+      <section className="admin-section" aria-label="감사 로그">
+        <div className="admin-section-heading">
+          <h2>감사 로그</h2>
+        </div>
+        <div className="admin-table">
+          {auditLogs.map((log) => (
+            <div className="admin-row" key={log.id}>
+              <div>
+                <strong>{log.action}</strong>
+                <span>{log.target_type}</span>
+              </div>
+              <span>{log.target_id}</span>
+              <span>{log.actor_user_id ?? "system"}</span>
+              <span>{formatMetadata(log.metadata)}</span>
+            </div>
+          ))}
+          {state === "ready" && auditLogs.length === 0 ? <p className="admin-muted">감사 로그가 없습니다.</p> : null}
         </div>
       </section>
     </div>
@@ -123,4 +173,13 @@ async function getAdminJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`Vaultix admin API request failed: ${response.status}`);
   }
   return (await response.json()) as T;
+}
+
+function formatMetadata(metadata: Record<string, unknown> | null): string {
+  if (!metadata) {
+    return "-";
+  }
+  return Object.entries(metadata)
+    .map(([key, value]) => `${key}: ${String(value)}`)
+    .join(", ");
 }

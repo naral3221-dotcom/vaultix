@@ -12,5 +12,6 @@ describe("HomePage", () => {
     expect(screen.getByText("이번 주 큐레이션")).toBeInTheDocument();
     expect(screen.getByText("이미지 자산")).toBeInTheDocument();
     expect(screen.getByText("새로 추가된 자산")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "관리자" })).toHaveAttribute("href", "/admin");
   });
 });

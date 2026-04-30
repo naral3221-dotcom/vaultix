@@ -165,3 +165,64 @@ def test_asset_report_is_created_and_visible_to_admin(client: TestClient):
 
     with client.app.state.test_sessionmaker() as session:
         assert session.query(AssetReport).count() == 1
+
+
+def test_admin_can_resolve_report_and_writes_audit_log(client: TestClient):
+    with client.app.state.test_sessionmaker() as session:
+        session.add(
+            AssetReport(
+                id=1,
+                asset_id=101,
+                reason="copyright",
+                message="저작권 확인이 필요합니다.",
+                status="open",
+            )
+        )
+        session.commit()
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.patch(
+        "/api/v1/admin/reports/1/status",
+        json={"status": "resolved", "reason": "권리 확인 완료"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "resolved"
+    with client.app.state.test_sessionmaker() as session:
+        report = session.get(AssetReport, 1)
+        audit = session.query(AuditLog).filter(AuditLog.target_type == "asset_report").one()
+        assert report.status == "resolved"
+        assert audit.actor_user_id == 1
+        assert audit.action == "asset_report.status_changed"
+        assert audit.target_id == 1
+        assert audit.metadata_json == '{"from":"open","reason":"권리 확인 완료","to":"resolved"}'
+
+
+def test_admin_can_list_recent_audit_logs(client: TestClient):
+    with client.app.state.test_sessionmaker() as session:
+        session.add(
+            AuditLog(
+                id=1,
+                actor_user_id=1,
+                action="asset.status_changed",
+                target_type="asset",
+                target_id=101,
+                metadata_json='{"from":"inbox","to":"published"}',
+            )
+        )
+        session.commit()
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.get("/api/v1/admin/audit-logs")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == [
+        {
+            "id": 1,
+            "actor_user_id": 1,
+            "action": "asset.status_changed",
+            "target_type": "asset",
+            "target_id": 101,
+            "metadata": {"from": "inbox", "to": "published"},
+        }
+    ]

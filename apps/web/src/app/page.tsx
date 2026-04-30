@@ -28,6 +28,7 @@ export default function HomePage() {
           <a href="/today">오늘의 큐레이션</a>
           <a href="/log">운영 일지</a>
           <a href="/newsletter">뉴스레터</a>
+          <a href="/admin">관리자</a>
         </nav>
         <div className="header-actions">
           <a className="ghost-link" href="/auth/signin">
