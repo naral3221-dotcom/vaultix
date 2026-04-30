@@ -2,14 +2,14 @@ from datetime import UTC, datetime, timedelta
 import re
 import secrets
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import get_db, problem
-from vaultix_api.models.core import EmailVerification, User
-from vaultix_api.services.passwords import hash_password
+from vaultix_api.models.core import EmailVerification, Session as UserSession, User
+from vaultix_api.services.passwords import hash_password, verify_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -24,6 +24,11 @@ class SignupRequest(BaseModel):
 
 class VerifyEmailRequest(BaseModel):
     token: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 
 @router.post("/signup", status_code=201)
@@ -107,3 +112,46 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)) -> 
     db.commit()
 
     return {"data": {"verified": True, "user_id": user.id}}
+
+
+@router.post("/login")
+def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)) -> dict[str, object]:
+    email_lower = payload.email.strip().lower()
+    user = db.query(User).filter(User.email_lower == email_lower, User.status == "active").first()
+    if user is None or user.password_hash is None or not verify_password(payload.password, user.password_hash):
+        raise problem(
+            401,
+            "unauthenticated",
+            "Unauthenticated",
+            "이메일 또는 비밀번호가 올바르지 않습니다.",
+        )
+
+    next_session_id = int(db.query(func.coalesce(func.max(UserSession.id), 0)).scalar() or 0) + 1
+    session_token = secrets.token_urlsafe(48)
+    session = UserSession(
+        id=next_session_id,
+        session_token=session_token,
+        user_id=user.id,
+        expires=datetime.now(UTC) + timedelta(days=30),
+    )
+    user.last_login_at = datetime.now(UTC)
+    db.add(session)
+    db.commit()
+
+    response.set_cookie(
+        "vaultix.session",
+        session_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/",
+    )
+    return {
+        "data": {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "email_verified": user.email_verified_at is not None,
+            }
+        }
+    }

@@ -135,3 +135,50 @@ def test_verify_email_rejects_missing_token(client: TestClient):
 
     assert response.status_code == 410
     assert response.json()["code"] == "verification_token_invalid"
+
+
+def test_login_creates_session_and_sets_cookie(client: TestClient):
+    client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "user@example.com",
+            "password": "password1",
+            "display_name": "박지원",
+            "locale": "ko",
+            "turnstile_token": "dev-token",
+        },
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "USER@example.com", "password": "password1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["user"] == {
+        "id": 1,
+        "email": "user@example.com",
+        "email_verified": False,
+    }
+    assert "vaultix.session=" in response.headers["set-cookie"]
+
+
+def test_login_rejects_wrong_password(client: TestClient):
+    client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "user@example.com",
+            "password": "password1",
+            "display_name": "박지원",
+            "locale": "ko",
+            "turnstile_token": "dev-token",
+        },
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "user@example.com", "password": "wrong-password1"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "unauthenticated"
