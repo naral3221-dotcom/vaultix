@@ -5,6 +5,7 @@ import secrets
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -20,6 +21,12 @@ from vaultix_api.services.email_delivery import (
     verification_email_html,
 )
 from vaultix_api.services.email_domains import is_disposable_email
+from vaultix_api.services.google_oauth import (
+    build_google_authorize_url,
+    exchange_google_code,
+    sign_oauth_state,
+    verify_oauth_state,
+)
 from vaultix_api.services.passwords import hash_password, verify_password
 from vaultix_api.services.turnstile import verify_turnstile
 from vaultix_api.settings import Settings, get_settings
@@ -263,28 +270,7 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
             "이메일 또는 비밀번호가 올바르지 않습니다.",
         )
 
-    next_session_id = int(db.query(func.coalesce(func.max(UserSession.id), 0)).scalar() or 0) + 1
-    session_token = secrets.token_urlsafe(48)
-    session = UserSession(
-        id=next_session_id,
-        session_token=session_token,
-        user_id=user.id,
-        expires=datetime.now(UTC) + timedelta(days=30),
-    )
-    user.last_login_at = datetime.now(UTC)
-    if is_configured_admin_email(user.email_lower, get_settings().admin_emails):
-        user.role = "admin"
-    db.add(session)
-    db.commit()
-
-    response.set_cookie(
-        "vaultix.session",
-        session_token,
-        httponly=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 30,
-        path="/",
-    )
+    _create_session_cookie(user=user, response=response, db=db, settings=get_settings())
     return {
         "data": {
             "user": {
@@ -294,6 +280,56 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
             }
         }
     }
+
+
+@router.get("/google/start")
+def start_google_oauth(next: str = "/explore") -> RedirectResponse:
+    settings = get_settings()
+    if not settings.google_oauth_client_id or not settings.google_oauth_client_secret:
+        raise problem(
+            503,
+            "oauth_not_configured",
+            "OAuth not configured",
+            "Google 로그인이 아직 설정되지 않았습니다.",
+        )
+    state = sign_oauth_state(settings.auth_secret, _safe_oauth_next(next))
+    redirect_uri = _google_redirect_uri(settings)
+    authorize_url = build_google_authorize_url(
+        client_id=settings.google_oauth_client_id,
+        redirect_uri=redirect_uri,
+        state=state,
+    )
+    return RedirectResponse(authorize_url)
+
+
+@router.get("/google/callback")
+def google_oauth_callback(
+    code: str,
+    state: str,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    settings = get_settings()
+    next_url = verify_oauth_state(settings.auth_secret, state)
+    if next_url is None:
+        raise problem(400, "oauth_state_invalid", "OAuth state invalid", "Google 로그인 요청이 만료되었습니다.")
+    try:
+        profile = exchange_google_code(
+            client_id=settings.google_oauth_client_id,
+            client_secret=settings.google_oauth_client_secret,
+            redirect_uri=_google_redirect_uri(settings),
+            code=code,
+        )
+    except httpx.HTTPError as exc:
+        raise problem(
+            502,
+            "oauth_exchange_failed",
+            "OAuth exchange failed",
+            "Google 로그인 정보를 확인하지 못했습니다.",
+        ) from exc
+    user = _upsert_google_user(profile=profile, db=db, settings=settings)
+    response = RedirectResponse(next_url)
+    _create_session_cookie(user=user, response=response, db=db, settings=settings)
+    return response
 
 
 def _send_email_or_raise(*, to: str, subject: str, html: str, settings: Settings) -> None:
@@ -312,3 +348,74 @@ def _send_email_or_raise(*, to: str, subject: str, html: str, settings: Settings
             "Email delivery failed",
             "메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         ) from exc
+
+
+def _google_redirect_uri(settings: Settings) -> str:
+    return f"{settings.public_site_url.rstrip('/')}/api/v1/auth/google/callback"
+
+
+def _safe_oauth_next(next_url: str) -> str:
+    return next_url if next_url.startswith("/") and not next_url.startswith("//") else "/explore"
+
+
+def _upsert_google_user(*, profile: dict[str, object], db: Session, settings: Settings) -> User:
+    email = str(profile.get("email") or "").strip()
+    email_lower = email.lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email_lower):
+        raise problem(400, "oauth_email_missing", "OAuth email missing", "Google 계정 이메일을 확인하지 못했습니다.")
+    if profile.get("email_verified") is not True:
+        raise problem(403, "oauth_email_unverified", "OAuth email unverified", "인증된 Google 이메일만 사용할 수 있습니다.")
+
+    now = datetime.now(UTC)
+    display_name = str(profile.get("name") or "").strip() or None
+    role = "admin" if is_configured_admin_email(email_lower, settings.admin_emails) else "member"
+    user = db.query(User).filter(User.email_lower == email_lower).first()
+    if user is None:
+        next_user_id = int(db.query(func.coalesce(func.max(User.id), 0)).scalar() or 0) + 1
+        user = User(
+            id=next_user_id,
+            email=email,
+            email_lower=email_lower,
+            password_hash=None,
+            display_name=display_name,
+            locale="ko",
+            status="active",
+            role=role,
+            email_verified_at=now,
+        )
+        db.add(user)
+        db.flush()
+        return user
+
+    user.email = email
+    user.status = "active"
+    user.role = role
+    user.email_verified_at = user.email_verified_at or now
+    if display_name and not user.display_name:
+        user.display_name = display_name
+    return user
+
+
+def _create_session_cookie(*, user: User, response: Response, db: Session, settings: Settings) -> None:
+    next_session_id = int(db.query(func.coalesce(func.max(UserSession.id), 0)).scalar() or 0) + 1
+    session_token = secrets.token_urlsafe(48)
+    session = UserSession(
+        id=next_session_id,
+        session_token=session_token,
+        user_id=user.id,
+        expires=datetime.now(UTC) + timedelta(days=30),
+    )
+    user.last_login_at = datetime.now(UTC)
+    if is_configured_admin_email(user.email_lower, settings.admin_emails):
+        user.role = "admin"
+    db.add(session)
+    db.commit()
+
+    response.set_cookie(
+        "vaultix.session",
+        session_token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+        path="/",
+    )

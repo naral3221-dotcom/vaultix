@@ -56,6 +56,15 @@ describe("SigninForm", () => {
 
     expect(await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다.")).toBeInTheDocument();
   });
+
+  it("links to Google OAuth login", () => {
+    render(<SigninForm />);
+
+    expect(screen.getByRole("link", { name: "Google로 계속하기" })).toHaveAttribute(
+      "href",
+      "/api/v1/auth/google/start",
+    );
+  });
 });
 
 function response(status: number, body: unknown) {

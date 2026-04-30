@@ -42,14 +42,15 @@ export const roadmapPhases: RoadmapPhase[] = [
     id: "Phase 2",
     title: "관리자 운영",
     status: "active",
-    progress: 70,
+    progress: 80,
     completed: [
       "관리자 role과 ADMIN_EMAILS",
+      "Google OAuth 로그인",
       "에셋 검수/게시 상태 변경",
       "신고 처리와 감사 로그",
     ],
-    inProgress: ["개발 진행상황 시각화", "관리자 UX 정리"],
-    next: ["Google OAuth", "관리자 접근 안내", "에셋 생성 요청 큐"],
+    inProgress: ["관리자 UX 정리", "관리자 접근 안내"],
+    next: ["에셋 생성 요청 큐"],
   },
   {
     id: "Phase 3",
@@ -78,5 +79,5 @@ export const roadmapPhases: RoadmapPhase[] = [
 
 export const roadmapSummary = {
   current: "현재 진행: Phase 2 관리자 운영",
-  nextDecision: "다음 큰 결정: Google OAuth를 붙인 뒤 에셋 생성 파이프라인으로 넘어갈지 확정",
+  nextDecision: "다음 큰 결정: 관리자 UX 정리를 마친 뒤 에셋 생성 파이프라인으로 넘어갈지 확정",
 };

@@ -51,6 +51,10 @@ export function SigninForm() {
         {isSubmitting ? "확인 중" : "로그인"}
       </button>
 
+      <a className="auth-secondary-button google-auth-link" href="/api/v1/auth/google/start">
+        Google로 계속하기
+      </a>
+
       {state.message ? (
         <p className="auth-message error" role="status">
           {state.message}

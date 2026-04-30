@@ -547,6 +547,14 @@ input {
   padding: 0 14px;
 }
 
+.google-auth-link {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
 .auth-form button:disabled {
   cursor: wait;
   opacity: 0.72;
