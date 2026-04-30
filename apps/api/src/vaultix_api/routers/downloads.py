@@ -14,6 +14,12 @@ HOURLY_DOWNLOAD_LIMIT = 30
 DOWNLOAD_RATE_WINDOW_SECONDS = 3600
 
 
+def to_internal_accel_path(file_path: str) -> str:
+    if file_path.startswith("/cdn/"):
+        return file_path.replace("/cdn/", "/internal-assets/", 1)
+    return file_path
+
+
 @router.post("/api/v1/downloads/{asset_id}", status_code=201)
 def create_download_intent(
     asset_id: int,
@@ -84,4 +90,4 @@ def download_asset(asset_id: int, nonce: str, db: Session = Depends(get_db)) -> 
 
     asset.download_count += 1
     db.commit()
-    return Response(status_code=204, headers={"X-Accel-Redirect": token.file_path})
+    return Response(status_code=204, headers={"X-Accel-Redirect": to_internal_accel_path(token.file_path)})

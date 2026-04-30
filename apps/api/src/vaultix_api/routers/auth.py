@@ -1,15 +1,17 @@
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 import re
 import secrets
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Cookie, Depends, Response
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import get_db, problem
-from vaultix_api.models.core import EmailVerification, Session as UserSession, User
+from vaultix_api.models.core import EmailVerification, PasswordReset, Session as UserSession, User
 from vaultix_api.services.passwords import hash_password, verify_password
+from vaultix_api.settings import get_settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -28,6 +30,15 @@ class VerifyEmailRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str
+    password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     password: str
 
 
@@ -76,6 +87,86 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> dict[str, o
             }
         }
     }
+
+
+@router.post("/logout")
+def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    secure_session_token: str | None = Cookie(default=None, alias="__Secure-vaultix.session"),
+    session_token: str | None = Cookie(default=None, alias="vaultix.session"),
+) -> dict[str, object]:
+    token = secure_session_token or session_token
+    if token:
+        db.query(UserSession).filter(UserSession.session_token == token).delete()
+        db.commit()
+    response.delete_cookie("vaultix.session", path="/")
+    response.delete_cookie("__Secure-vaultix.session", path="/")
+    return {"data": {"logged_out": True}}
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    email_lower = payload.email.strip().lower()
+    user = db.query(User).filter(User.email_lower == email_lower, User.status == "active").first()
+    response: dict[str, object] = {"data": {"sent": True}}
+    if user is None:
+        return response
+
+    raw_token = secrets.token_urlsafe(48)
+    next_reset_id = int(db.query(func.coalesce(func.max(PasswordReset.id), 0)).scalar() or 0) + 1
+    reset = PasswordReset(
+        id=next_reset_id,
+        user_id=user.id,
+        token_hash=f"sha256${sha256(raw_token.encode('utf-8')).hexdigest()}",
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    db.add(reset)
+    db.commit()
+    # Until Resend is wired, expose this only outside production for local/Tailnet smoke flows.
+    if get_settings().env != "production":
+        response["data"] = {"sent": True, "reset_token": raw_token}
+    return response
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict[str, object]:
+    if len(payload.password) < 8 or not any(char.isdigit() for char in payload.password):
+        raise problem(400, "validation_error", "Validation error", "비밀번호는 8자 이상이며 숫자를 포함해야 합니다.")
+
+    token_hash = f"sha256${sha256(payload.token.encode('utf-8')).hexdigest()}"
+    reset = (
+        db.query(PasswordReset)
+        .filter(
+            PasswordReset.token_hash == token_hash,
+            PasswordReset.used_at.is_(None),
+            PasswordReset.expires_at > datetime.now(UTC),
+        )
+        .first()
+    )
+    if reset is None:
+        raise problem(
+            410,
+            "reset_token_invalid",
+            "Reset token invalid",
+            "비밀번호 재설정 링크가 만료되었거나 이미 사용되었습니다.",
+        )
+
+    user = db.query(User).filter(User.id == reset.user_id, User.status == "active").first()
+    if user is None:
+        raise problem(
+            410,
+            "reset_token_invalid",
+            "Reset token invalid",
+            "비밀번호 재설정 링크가 만료되었거나 이미 사용되었습니다.",
+        )
+
+    now = datetime.now(UTC)
+    user.password_hash = hash_password(payload.password)
+    reset.used_at = now
+    db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+    db.commit()
+    return {"data": {"reset": True}}
 
 
 @router.post("/verify-email")

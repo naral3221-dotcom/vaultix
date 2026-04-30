@@ -10,7 +10,7 @@ export default function SignInPage() {
       form={<SigninForm />}
       footer={
         <p>
-          계정이 없나요? <a href="/auth/signup">회원가입</a>
+          계정이 없나요? <a href="/auth/signup">회원가입</a> · <a href="/auth/forgot-password">비밀번호 재설정</a>
         </p>
       }
     />

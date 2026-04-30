@@ -14,6 +14,7 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://vaultix:change-me@localhost:5440/vaultix",
         validation_alias="DATABASE_URL",
     )
+    redis_url: str = Field(default="redis://localhost:6380/0", validation_alias="REDIS_URL")
 
 
 @lru_cache

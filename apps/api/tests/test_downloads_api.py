@@ -11,7 +11,12 @@ from vaultix_api.db.base import Base
 from vaultix_api.deps import CurrentUser, get_db, require_verified_user
 from vaultix_api.main import app
 from vaultix_api.models.core import Asset, Category, Session as UserSession, User
-from vaultix_api.services.download_tokens import download_rate_limiter, download_token_store
+from vaultix_api.services.download_tokens import (
+    DownloadTokenStore,
+    InMemoryTokenBackend,
+    download_rate_limiter,
+    download_token_store,
+)
 
 
 def test_download_intent_requires_a_verified_user(client: TestClient):
@@ -66,7 +71,7 @@ def test_download_intent_issues_single_use_link_and_download_consumes(client: Te
     download_response = client.get(intent_payload["download_url"])
 
     assert download_response.status_code == 204
-    assert download_response.headers["x-accel-redirect"] == "/cdn/original/business-meeting.png"
+    assert download_response.headers["x-accel-redirect"] == "/internal-assets/original/business-meeting.png"
 
     replay_response = client.get(intent_payload["download_url"])
 
@@ -110,6 +115,20 @@ def test_download_link_returns_410_for_invalid_nonce(client: TestClient):
 
     assert response.status_code == 410
     assert response.json()["code"] == "download_link_invalid"
+
+
+def test_download_tokens_are_stored_in_shared_backend():
+    backend = InMemoryTokenBackend()
+    first_store = DownloadTokenStore(backend)
+    second_store = DownloadTokenStore(backend)
+
+    nonce = first_store.issue(asset_id=1, user_id=7, file_path="/cdn/original/business-meeting.png", ttl_seconds=300)
+
+    token = second_store.consume(nonce)
+
+    assert token is not None
+    assert token.file_path == "/cdn/original/business-meeting.png"
+    assert second_store.consume(nonce) is None
 
 
 def seed_catalog(session: Session) -> None:
