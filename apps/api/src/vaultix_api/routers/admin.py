@@ -6,12 +6,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import CurrentUser, get_db, problem, require_admin_user
-from vaultix_api.models.core import Asset, AssetReport, AuditLog
+from vaultix_api.models.core import Asset, AssetGenerationRequest, AssetReport, AuditLog
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 ASSET_STATUSES = {"inbox", "approved", "published", "rejected", "archived", "taken_down"}
+ASSET_TYPES = {"image", "pptx", "svg", "docx", "xlsx", "html", "lottie", "colorbook", "icon_set"}
 REPORT_STATUSES = {"open", "resolved", "dismissed"}
+GENERATION_REQUEST_STATUSES = {"queued", "processing", "completed", "failed", "canceled"}
 
 
 class AssetStatusRequest(BaseModel):
@@ -24,6 +26,18 @@ class ReportStatusRequest(BaseModel):
     reason: str | None = None
 
 
+class GenerationRequestCreateRequest(BaseModel):
+    prompt: str
+    asset_type: str = "image"
+    provider_preference: str | None = "nanobanana"
+    admin_notes: str | None = None
+
+
+class GenerationRequestStatusRequest(BaseModel):
+    status: str
+    admin_notes: str | None = None
+
+
 def admin_asset_to_dict(asset: Asset) -> dict[str, object]:
     return {
         "id": asset.id,
@@ -32,6 +46,18 @@ def admin_asset_to_dict(asset: Asset) -> dict[str, object]:
         "status": asset.status,
         "asset_type": asset.asset_type,
         "download_count": asset.download_count,
+    }
+
+
+def generation_request_to_dict(request: AssetGenerationRequest) -> dict[str, object]:
+    return {
+        "id": request.id,
+        "prompt": request.prompt,
+        "asset_type": request.asset_type,
+        "provider_preference": request.provider_preference,
+        "status": request.status,
+        "admin_notes": request.admin_notes,
+        "result_asset_id": request.result_asset_id,
     }
 
 
@@ -122,6 +148,102 @@ def list_reports(
         ],
         "meta": {"limit": bounded_limit},
     }
+
+
+@router.get("/generation-requests")
+def list_generation_requests(
+    status: str | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    _admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    if status is not None and status not in GENERATION_REQUEST_STATUSES:
+        raise problem(400, "validation_error", "Validation error", "지원하지 않는 생성 요청 상태입니다.")
+    bounded_limit = min(max(limit, 1), 100)
+    query = db.query(AssetGenerationRequest)
+    if status is not None:
+        query = query.filter(AssetGenerationRequest.status == status)
+    requests = query.order_by(AssetGenerationRequest.id.desc()).limit(bounded_limit).all()
+    return {"data": [generation_request_to_dict(request) for request in requests], "meta": {"limit": bounded_limit}}
+
+
+@router.post("/generation-requests", status_code=201)
+def create_generation_request(
+    payload: GenerationRequestCreateRequest,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    prompt = payload.prompt.strip()
+    if len(prompt) < 8:
+        raise problem(400, "validation_error", "Validation error", "생성 요청은 8자 이상 입력해 주세요.")
+    if payload.asset_type not in ASSET_TYPES:
+        raise problem(400, "validation_error", "Validation error", "지원하지 않는 에셋 유형입니다.")
+    next_request_id = int(db.query(func.coalesce(func.max(AssetGenerationRequest.id), 0)).scalar() or 0) + 1
+    request = AssetGenerationRequest(
+        id=next_request_id,
+        requester_user_id=admin.id,
+        prompt=prompt,
+        asset_type=payload.asset_type,
+        provider_preference=payload.provider_preference.strip() if payload.provider_preference else None,
+        status="queued",
+        admin_notes=payload.admin_notes.strip() if payload.admin_notes else None,
+    )
+    db.add(request)
+    db.flush()
+    db.add(
+        AuditLog(
+            id=int(db.query(func.coalesce(func.max(AuditLog.id), 0)).scalar() or 0) + 1,
+            actor_user_id=admin.id,
+            action="asset_generation_request.created",
+            target_type="asset_generation_request",
+            target_id=request.id,
+            metadata_json=json.dumps(
+                {"asset_type": request.asset_type, "provider": request.provider_preference},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+    )
+    db.commit()
+    db.refresh(request)
+    return {"data": generation_request_to_dict(request)}
+
+
+@router.patch("/generation-requests/{request_id}/status")
+def update_generation_request_status(
+    request_id: int,
+    payload: GenerationRequestStatusRequest,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    if payload.status not in GENERATION_REQUEST_STATUSES:
+        raise problem(400, "validation_error", "Validation error", "지원하지 않는 생성 요청 상태입니다.")
+    request = db.get(AssetGenerationRequest, request_id)
+    if request is None:
+        raise problem(404, "generation_request_not_found", "Generation request not found", "생성 요청을 찾을 수 없습니다.")
+    previous_status = request.status
+    request.status = payload.status
+    if payload.admin_notes is not None:
+        request.admin_notes = payload.admin_notes.strip() or None
+    db.add(
+        AuditLog(
+            id=int(db.query(func.coalesce(func.max(AuditLog.id), 0)).scalar() or 0) + 1,
+            actor_user_id=admin.id,
+            action="asset_generation_request.status_changed",
+            target_type="asset_generation_request",
+            target_id=request.id,
+            metadata_json=json.dumps(
+                {"from": previous_status, "to": payload.status},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+    )
+    db.commit()
+    db.refresh(request)
+    return {"data": generation_request_to_dict(request)}
 
 
 @router.patch("/reports/{report_id}/status")

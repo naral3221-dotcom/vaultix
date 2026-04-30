@@ -27,6 +27,21 @@ describe("AdminDashboard", () => {
             ],
           });
         }
+        if (url.includes("/api/v1/admin/generation-requests")) {
+          return response(200, {
+            data: [
+              {
+                id: 1,
+                prompt: "업무 보고서용 미니멀 아이콘 세트",
+                asset_type: "icon_set",
+                provider_preference: "openai",
+                status: "queued",
+                admin_notes: "검수 대기",
+                result_asset_id: null,
+              },
+            ],
+          });
+        }
         return response(200, {
           data: [
             {
@@ -46,6 +61,8 @@ describe("AdminDashboard", () => {
 
     expect(await screen.findByText("검수 대기 에셋")).toBeInTheDocument();
     expect(await screen.findByText("저작권 확인이 필요합니다.")).toBeInTheDocument();
+    expect(await screen.findByText("업무 보고서용 미니멀 아이콘 세트")).toBeInTheDocument();
+    expect(screen.getByText("관리자 접근 안내")).toBeInTheDocument();
   });
 
   it("publishes an asset from the inbox", async () => {
@@ -76,6 +93,9 @@ describe("AdminDashboard", () => {
             },
           ],
         });
+      }
+      if (url.includes("/api/v1/admin/generation-requests")) {
+        return response(200, { data: [] });
       }
       return response(200, { data: [] });
     });
@@ -140,6 +160,9 @@ describe("AdminDashboard", () => {
           ],
         });
       }
+      if (url.includes("/api/v1/admin/generation-requests")) {
+        return response(200, { data: [] });
+      }
       return response(200, { data: [] });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -159,6 +182,51 @@ describe("AdminDashboard", () => {
       ),
     );
     expect(await screen.findByText("resolved")).toBeInTheDocument();
+  });
+
+  it("creates a generation request from the admin queue form", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.includes("/api/v1/admin/generation-requests")) {
+        return response(201, {
+          data: {
+            id: 1,
+            prompt: "상품 상세페이지 히어로 이미지",
+            asset_type: "image",
+            provider_preference: "nanobanana",
+            status: "queued",
+            admin_notes: "우선순위 높음",
+            result_asset_id: null,
+          },
+        });
+      }
+      return response(200, { data: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminDashboard />);
+
+    fireEvent.change(await screen.findByLabelText("생성 요청"), {
+      target: { value: "상품 상세페이지 히어로 이미지" },
+    });
+    fireEvent.change(screen.getByLabelText("운영 메모"), { target: { value: "우선순위 높음" } });
+    fireEvent.click(screen.getByRole("button", { name: "요청 등록" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/admin/generation-requests",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            prompt: "상품 상세페이지 히어로 이미지",
+            asset_type: "image",
+            provider_preference: "nanobanana",
+            admin_notes: "우선순위 높음",
+          }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("상품 상세페이지 히어로 이미지")).toBeInTheDocument();
   });
 });
 

@@ -10,7 +10,14 @@ from sqlalchemy.pool import StaticPool
 from vaultix_api.db.base import Base
 from vaultix_api.deps import get_db
 from vaultix_api.main import app
-from vaultix_api.models.core import Asset, AssetReport, AuditLog, Session as UserSession, User
+from vaultix_api.models.core import (
+    Asset,
+    AssetGenerationRequest,
+    AssetReport,
+    AuditLog,
+    Session as UserSession,
+    User,
+)
 from vaultix_api.services.passwords import hash_password
 
 
@@ -226,3 +233,65 @@ def test_admin_can_list_recent_audit_logs(client: TestClient):
             "metadata": {"from": "inbox", "to": "published"},
         }
     ]
+
+
+def test_admin_can_create_and_list_generation_requests(client: TestClient):
+    client.cookies.set("vaultix.session", "admin-session")
+
+    create_response = client.post(
+        "/api/v1/admin/generation-requests",
+        json={
+            "prompt": "업무 보고서용 미니멀 아이콘 세트",
+            "asset_type": "icon_set",
+            "provider_preference": "openai",
+            "admin_notes": "첫 MVP 큐 검증",
+        },
+    )
+    list_response = client.get("/api/v1/admin/generation-requests")
+
+    assert create_response.status_code == 201
+    assert create_response.json()["data"] == {
+        "id": 1,
+        "prompt": "업무 보고서용 미니멀 아이콘 세트",
+        "asset_type": "icon_set",
+        "provider_preference": "openai",
+        "status": "queued",
+        "admin_notes": "첫 MVP 큐 검증",
+        "result_asset_id": None,
+    }
+    assert list_response.status_code == 200
+    assert list_response.json()["data"][0]["prompt"] == "업무 보고서용 미니멀 아이콘 세트"
+    with client.app.state.test_sessionmaker() as session:
+        request = session.query(AssetGenerationRequest).one()
+        audit = session.query(AuditLog).filter(AuditLog.target_type == "asset_generation_request").one()
+        assert request.status == "queued"
+        assert audit.action == "asset_generation_request.created"
+
+
+def test_admin_can_advance_generation_request_status(client: TestClient):
+    with client.app.state.test_sessionmaker() as session:
+        session.add(
+            AssetGenerationRequest(
+                id=1,
+                prompt="SNS 배너 배경",
+                asset_type="image",
+                provider_preference="nanobanana",
+                status="queued",
+            )
+        )
+        session.commit()
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.patch(
+        "/api/v1/admin/generation-requests/1/status",
+        json={"status": "processing", "admin_notes": "프롬프트 확인 완료"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "processing"
+    assert response.json()["data"]["admin_notes"] == "프롬프트 확인 완료"
+    with client.app.state.test_sessionmaker() as session:
+        request = session.get(AssetGenerationRequest, 1)
+        audit = session.query(AuditLog).filter(AuditLog.action == "asset_generation_request.status_changed").one()
+        assert request.status == "processing"
+        assert audit.metadata_json == '{"from":"queued","to":"processing"}'

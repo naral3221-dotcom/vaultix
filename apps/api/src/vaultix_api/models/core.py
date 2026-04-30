@@ -184,6 +184,31 @@ class AssetReport(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
 
 
+class AssetGenerationRequest(TimestampMixin, Base):
+    __tablename__ = "asset_generation_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "asset_type IN ('image','pptx','svg','docx','xlsx','html','lottie','colorbook','icon_set')",
+            name="ck_asset_generation_requests_asset_type",
+        ),
+        CheckConstraint(
+            "status IN ('queued','processing','completed','failed','canceled')",
+            name="ck_asset_generation_requests_status",
+        ),
+        Index("idx_asset_generation_requests_status_created", "status", "created_at"),
+        Index("idx_asset_generation_requests_requester", "requester_user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    requester_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(32), nullable=False, default="image")
+    provider_preference: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    admin_notes: Mapped[str | None] = mapped_column(Text)
+    result_asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id", ondelete="SET NULL"))
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     __table_args__ = (
