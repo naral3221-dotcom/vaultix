@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from vaultix_api.deps import CurrentUser, get_db, problem, require_admin_user
 from vaultix_api.models.core import Asset, AssetGenerationRequest, AssetReport, AuditLog
+from vaultix_api.services.generation_worker import process_generation_request
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -243,6 +244,18 @@ def update_generation_request_status(
     )
     db.commit()
     db.refresh(request)
+    return {"data": generation_request_to_dict(request)}
+
+
+@router.post("/generation-requests/{request_id}/run")
+def run_generation_request_worker(
+    request_id: int,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    request = process_generation_request(db, request_id=request_id, actor_user_id=admin.id)
+    if request is None:
+        raise problem(404, "generation_request_not_found", "Generation request not found", "생성 요청을 찾을 수 없습니다.")
     return {"data": generation_request_to_dict(request)}
 
 

@@ -295,3 +295,32 @@ def test_admin_can_advance_generation_request_status(client: TestClient):
         audit = session.query(AuditLog).filter(AuditLog.action == "asset_generation_request.status_changed").one()
         assert request.status == "processing"
         assert audit.metadata_json == '{"from":"queued","to":"processing"}'
+
+
+def test_admin_can_run_generation_request_worker(client: TestClient):
+    with client.app.state.test_sessionmaker() as session:
+        session.add(
+            AssetGenerationRequest(
+                id=1,
+                prompt="랜딩 페이지용 추상 배경 이미지",
+                asset_type="image",
+                provider_preference="nanobanana",
+                status="queued",
+            )
+        )
+        session.commit()
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.post("/api/v1/admin/generation-requests/1/run")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "completed"
+    assert response.json()["data"]["result_asset_id"] == 102
+    with client.app.state.test_sessionmaker() as session:
+        request = session.get(AssetGenerationRequest, 1)
+        asset = session.get(Asset, 102)
+        audit = session.query(AuditLog).filter(AuditLog.action == "asset_generation_request.completed").one()
+        assert request.status == "completed"
+        assert asset.status == "inbox"
+        assert asset.slug == "generated-request-1"
+        assert audit.actor_user_id == 1

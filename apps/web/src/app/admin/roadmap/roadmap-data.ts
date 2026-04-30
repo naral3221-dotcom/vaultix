@@ -41,8 +41,8 @@ export const roadmapPhases: RoadmapPhase[] = [
   {
     id: "Phase 2",
     title: "관리자 운영",
-    status: "active",
-    progress: 90,
+    status: "done",
+    progress: 100,
     completed: [
       "관리자 role과 ADMIN_EMAILS",
       "Google OAuth 로그인",
@@ -51,18 +51,17 @@ export const roadmapPhases: RoadmapPhase[] = [
       "신고 처리와 감사 로그",
       "에셋 생성 요청 큐 MVP",
     ],
-    inProgress: ["관리자 UX 정리"],
-    next: ["AI worker 큐 연결"],
+    inProgress: [],
+    next: [],
   },
   {
     id: "Phase 3",
     title: "AI 생성 파이프라인",
-    status: "next",
-    progress: 10,
-    completed: ["이미지 라우팅 정책 확정"],
-    inProgress: [],
+    status: "active",
+    progress: 25,
+    completed: ["이미지 라우팅 정책 확정", "생성 요청 큐 -> inbox 에셋 worker 연결"],
+    inProgress: ["실제 Nanobanana/OpenAI provider 호출부"],
     next: [
-      "Nanobanana -> OpenAI gpt-image-2",
       "Celery 작업 큐",
       "프롬프트 템플릿과 결과 검수",
       "썸네일/WebP 변환",
@@ -80,6 +79,6 @@ export const roadmapPhases: RoadmapPhase[] = [
 ];
 
 export const roadmapSummary = {
-  current: "현재 진행: Phase 2 관리자 운영",
-  nextDecision: "다음 큰 결정: 관리자 UX를 마감하고 Phase 3 AI worker 연결을 시작",
+  current: "현재 진행: Phase 3 AI 생성 파이프라인",
+  nextDecision: "다음 큰 결정: 실제 Nanobanana/OpenAI provider 호출부를 붙이고 비동기 worker로 분리",
 };

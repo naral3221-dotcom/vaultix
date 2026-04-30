@@ -8,13 +8,14 @@ describe("RoadmapPage", () => {
     render(<RoadmapPage />);
 
     expect(screen.getByRole("heading", { name: "개발 로드맵" })).toBeInTheDocument();
-    expect(screen.getByText("현재 진행: Phase 2 관리자 운영")).toBeInTheDocument();
+    expect(screen.getByText("현재 진행: Phase 3 AI 생성 파이프라인")).toBeInTheDocument();
     expect(screen.getByText("Phase 0")).toBeInTheDocument();
     expect(screen.getByText("Phase 1")).toBeInTheDocument();
     expect(screen.getByText("Phase 2")).toBeInTheDocument();
     expect(screen.getByText("Phase 3")).toBeInTheDocument();
     expect(screen.getByText("신고 처리와 감사 로그")).toBeInTheDocument();
     expect(screen.getByText("Google OAuth 로그인")).toBeInTheDocument();
-    expect(screen.getByText("Nanobanana -> OpenAI gpt-image-2")).toBeInTheDocument();
+    expect(screen.getByText("생성 요청 큐 -> inbox 에셋 worker 연결")).toBeInTheDocument();
+    expect(screen.getByText("실제 Nanobanana/OpenAI provider 호출부")).toBeInTheDocument();
   });
 });

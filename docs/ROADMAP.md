@@ -8,13 +8,13 @@ Last updated: 2026-05-01
 | --- | --- | ---: | --- |
 | Phase 0 | Done | 100% | VPS, Docker Compose, PostgreSQL, Redis, API/Web baseline, Tailnet nginx |
 | Phase 1 | Done | 100% | Public catalog, account flow, download links, Resend/Turnstile abuse checks |
-| Phase 2 | Active | 90% | Admin operation, reports, audit logs, roadmap visibility, Google OAuth, generation queue MVP |
-| Phase 3 | Next | 10% | Nanobanana -> OpenAI gpt-image-2 generation pipeline |
+| Phase 2 | Done | 100% | Admin operation, reports, audit logs, roadmap visibility, Google OAuth, generation queue MVP |
+| Phase 3 | Active | 25% | Generation queue worker bridge, provider integration next |
 | Phase 4 | Later | 0% | SEO, analytics, monitoring, backups |
 
 ## Current Phase
 
-Phase 2 관리자 운영 is active.
+Phase 3 AI 생성 파이프라인 is active.
 
 Completed:
 - Admin role and `ADMIN_EMAILS`
@@ -23,14 +23,17 @@ Completed:
 - Asset review and publish status changes
 - Report resolution and audit logs
 - Asset generation request queue MVP
+- Generation request worker bridge that creates inbox assets
 
 In progress:
-- Admin UX cleanup
+- Real Nanobanana/OpenAI provider call path
 
 Next:
-- AI worker queue connection
+- Celery worker separation
+- Prompt templates and result review
+- Thumbnail/WebP processing
 
 ## Next Major Milestone
 
-Finish the remaining admin UX cleanup.
-After that, wire the AI generation pipeline: Nanobanana first, OpenAI `gpt-image-2` fallback, Celery queue, prompt templates, and thumbnail/WebP processing.
+Wire real provider calls: Nanobanana first, OpenAI `gpt-image-2` fallback.
+After that, split the current on-demand worker path into a Celery queue and add prompt templates plus thumbnail/WebP processing.

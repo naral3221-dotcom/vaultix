@@ -228,6 +228,55 @@ describe("AdminDashboard", () => {
     );
     expect(await screen.findByText("상품 상세페이지 히어로 이미지")).toBeInTheDocument();
   });
+
+  it("runs the worker for a queued generation request", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.includes("/api/v1/admin/generation-requests/1/run")) {
+        return response(200, {
+          data: {
+            id: 1,
+            prompt: "업무 보고서용 미니멀 아이콘 세트",
+            asset_type: "image",
+            provider_preference: "nanobanana",
+            status: "completed",
+            admin_notes: "생성 완료",
+            result_asset_id: 102,
+          },
+        });
+      }
+      if (url.includes("/api/v1/admin/generation-requests")) {
+        return response(200, {
+          data: [
+            {
+              id: 1,
+              prompt: "업무 보고서용 미니멀 아이콘 세트",
+              asset_type: "image",
+              provider_preference: "nanobanana",
+              status: "queued",
+              admin_notes: null,
+              result_asset_id: null,
+            },
+          ],
+        });
+      }
+      return response(200, { data: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminDashboard />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "worker 실행" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/admin/generation-requests/1/run",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByText("completed")).toBeInTheDocument();
+    expect(await screen.findByText("결과 에셋 #102")).toBeInTheDocument();
+  });
 });
 
 function response(status: number, body: unknown) {

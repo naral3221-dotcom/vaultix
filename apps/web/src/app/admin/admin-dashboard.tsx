@@ -158,6 +158,22 @@ export function AdminDashboard() {
     }
   }
 
+  async function runGenerationWorker(requestId: number) {
+    setMessage(null);
+    try {
+      const payload = await getAdminJson<{ data: GenerationRequest }>(
+        `/api/v1/admin/generation-requests/${requestId}/run`,
+        { method: "POST" },
+      );
+      setGenerationRequests((current) =>
+        current.map((request) => (request.id === requestId ? payload.data : request)),
+      );
+      setMessage("worker가 생성 요청을 완료했습니다.");
+    } catch {
+      setMessage("worker 실행에 실패했습니다.");
+    }
+  }
+
   return (
     <div className="admin-dashboard">
       {message ? <p className="admin-message">{message}</p> : null}
@@ -232,9 +248,15 @@ export function AdminDashboard() {
               <span>{request.asset_type}</span>
               <span>{request.provider_preference ?? "auto"}</span>
               <span>{request.status}</span>
-              <button type="button" onClick={() => startGenerationRequest(request.id)}>
-                처리 시작
-              </button>
+              <div className="generation-actions">
+                {request.result_asset_id ? <span>결과 에셋 #{request.result_asset_id}</span> : null}
+                <button type="button" onClick={() => runGenerationWorker(request.id)}>
+                  worker 실행
+                </button>
+                <button type="button" onClick={() => startGenerationRequest(request.id)}>
+                  처리 시작
+                </button>
+              </div>
             </div>
           ))}
           {state === "ready" && generationRequests.length === 0 ? (

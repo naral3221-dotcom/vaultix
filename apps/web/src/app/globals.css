@@ -982,7 +982,19 @@ input {
 }
 
 .generation-row {
-  grid-template-columns: minmax(260px, 1fr) 100px 120px 100px 90px;
+  grid-template-columns: minmax(260px, 1fr) 100px 120px 100px minmax(160px, 0.4fr);
+}
+
+.generation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.generation-actions span {
+  width: 100%;
+  text-align: right;
 }
 
 .admin-row div {
