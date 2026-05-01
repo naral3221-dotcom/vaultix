@@ -2,12 +2,12 @@ import json
 import re
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from vaultix_api.deps import CurrentUser, get_db, problem, require_admin_user
-from vaultix_api.models.core import Asset, AssetGenerationRequest, AssetReport, AuditLog
+from vaultix_api.models.core import Asset, AssetGenerationRequest, AssetReport, AssetTag, AuditLog, Category, Tag
 from vaultix_api.services.generation_worker import process_generation_request
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -29,6 +29,28 @@ class AssetMetadataRequest(BaseModel):
     title: str
     description: str | None = None
     alt_text: str | None = None
+
+
+class AssetImportTaxonomyRequest(BaseModel):
+    slug: str
+    name: str
+
+
+class AssetImportItemRequest(BaseModel):
+    slug: str
+    title: str
+    description: str | None = None
+    alt_text: str | None = None
+    file_path: str | None = None
+    thumbnail_path: str | None = None
+    preview_path: str | None = None
+    mime_type: str | None = "image/png"
+    category: AssetImportTaxonomyRequest | None = None
+    tags: list[AssetImportTaxonomyRequest] = Field(default_factory=list)
+
+
+class AssetBulkImportRequest(BaseModel):
+    items: list[AssetImportItemRequest]
 
 
 class ReportStatusRequest(BaseModel):
@@ -126,6 +148,112 @@ def update_asset_status(
     db.commit()
     db.refresh(asset)
     return {"data": admin_asset_to_dict(asset)}
+
+
+@router.post("/assets/import", status_code=201)
+def bulk_import_assets(
+    payload: AssetBulkImportRequest,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    if not payload.items:
+        raise problem(400, "validation_error", "Validation error", "등록할 에셋을 1개 이상 입력해 주세요.")
+    if len(payload.items) > 50:
+        raise problem(400, "validation_error", "Validation error", "한 번에 최대 50개까지 등록할 수 있습니다.")
+
+    seen_slugs: set[str] = set()
+    for item in payload.items:
+        slug = item.slug.strip()
+        title = item.title.strip()
+        if len(title) < 2:
+            raise problem(400, "validation_error", "Validation error", "제목은 2자 이상 입력해 주세요.")
+        if not SLUG_PATTERN.fullmatch(slug):
+            raise problem(400, "validation_error", "Validation error", "슬러그는 영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.")
+        if slug in seen_slugs:
+            raise problem(409, "slug_conflict", "Slug conflict", "중복된 슬러그가 포함되어 있습니다.")
+        seen_slugs.add(slug)
+
+    existing_slug = db.query(Asset.slug).filter(Asset.slug.in_(seen_slugs)).first()
+    if existing_slug is not None:
+        raise problem(409, "slug_conflict", "Slug conflict", "이미 사용 중인 슬러그입니다.")
+
+    next_asset_id = int(db.query(func.coalesce(func.max(Asset.id), 0)).scalar() or 0) + 1
+    next_category_id = int(db.query(func.coalesce(func.max(Category.id), 0)).scalar() or 0) + 1
+    next_tag_id = int(db.query(func.coalesce(func.max(Tag.id), 0)).scalar() or 0) + 1
+    created_assets: list[Asset] = []
+
+    for item in payload.items:
+        category_id = None
+        if item.category is not None:
+            category_slug = item.category.slug.strip()
+            if not SLUG_PATTERN.fullmatch(category_slug):
+                raise problem(400, "validation_error", "Validation error", "카테고리 슬러그 형식이 올바르지 않습니다.")
+            category = db.query(Category).filter(Category.slug == category_slug).first()
+            if category is None:
+                category = Category(id=next_category_id, slug=category_slug, name_ko=item.category.name.strip())
+                next_category_id += 1
+                db.add(category)
+                db.flush()
+            category_id = category.id
+
+        asset = Asset(
+            id=next_asset_id,
+            slug=item.slug.strip(),
+            asset_type="image",
+            category_id=category_id,
+            status="inbox",
+            title_ko=item.title.strip(),
+            description_ko=item.description.strip() if item.description else None,
+            alt_text_ko=item.alt_text.strip() if item.alt_text else None,
+            file_path=item.file_path.strip() if item.file_path else None,
+            thumbnail_path=item.thumbnail_path.strip() if item.thumbnail_path else None,
+            preview_path=item.preview_path.strip() if item.preview_path else None,
+            mime_type=item.mime_type.strip() if item.mime_type else None,
+            download_count=0,
+        )
+        next_asset_id += 1
+        db.add(asset)
+        db.flush()
+
+        for tag_item in item.tags:
+            tag_slug = tag_item.slug.strip()
+            if not SLUG_PATTERN.fullmatch(tag_slug):
+                raise problem(400, "validation_error", "Validation error", "태그 슬러그 형식이 올바르지 않습니다.")
+            tag = db.query(Tag).filter(Tag.slug == tag_slug).first()
+            if tag is None:
+                tag = Tag(id=next_tag_id, slug=tag_slug, name_ko=tag_item.name.strip(), use_count=0)
+                next_tag_id += 1
+                db.add(tag)
+                db.flush()
+            tag.use_count += 1
+            db.merge(AssetTag(asset_id=asset.id, tag_id=tag.id))
+
+        created_assets.append(asset)
+
+    db.add(
+        AuditLog(
+            id=int(db.query(func.coalesce(func.max(AuditLog.id), 0)).scalar() or 0) + 1,
+            actor_user_id=admin.id,
+            action="asset.bulk_imported",
+            target_type="asset",
+            target_id=created_assets[0].id,
+            metadata_json=json.dumps(
+                {"created_count": len(created_assets), "slugs": [asset.slug for asset in created_assets]},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+    )
+    db.commit()
+    for asset in created_assets:
+        db.refresh(asset)
+    return {
+        "data": {
+            "created_count": len(created_assets),
+            "assets": [admin_asset_to_dict(asset) for asset in created_assets],
+        }
+    }
 
 
 @router.patch("/assets/{asset_id}")

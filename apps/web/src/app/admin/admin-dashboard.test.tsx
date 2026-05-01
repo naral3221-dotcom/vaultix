@@ -193,6 +193,76 @@ describe("AdminDashboard", () => {
     expect(await screen.findByText("메타데이터를 저장했습니다.")).toBeInTheDocument();
   });
 
+  it("bulk imports image assets from pasted JSON", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.includes("/api/v1/admin/assets/import")) {
+        return response(201, {
+          data: {
+            created_count: 2,
+            assets: [
+              {
+                id: 201,
+                slug: "dashboard-hero-reference",
+                title: "대시보드 히어로 레퍼런스",
+                description: "SaaS 랜딩 페이지에 쓰기 좋은 히어로 이미지",
+                alt_text: "밝은 배경의 SaaS 대시보드 히어로 이미지",
+                status: "inbox",
+                asset_type: "image",
+                download_count: 0,
+              },
+              {
+                id: 202,
+                slug: "newsletter-card-reference",
+                title: "뉴스레터 카드 레퍼런스",
+                description: "업무 생산성 뉴스레터에 어울리는 카드 이미지",
+                alt_text: "뉴스레터 카드형 레퍼런스 이미지",
+                status: "inbox",
+                asset_type: "image",
+                download_count: 0,
+              },
+            ],
+          },
+        });
+      }
+      return response(200, { data: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminDashboard />);
+
+    const importItems = [
+      {
+        slug: "dashboard-hero-reference",
+        title: "대시보드 히어로 레퍼런스",
+        file_path: "/cdn/original/dashboard-hero.png",
+        category: { slug: "saas", name: "SaaS" },
+        tags: [{ slug: "hero", name: "히어로" }],
+      },
+      {
+        slug: "newsletter-card-reference",
+        title: "뉴스레터 카드 레퍼런스",
+        file_path: "/cdn/original/newsletter-card.png",
+      },
+    ];
+    fireEvent.change(await screen.findByLabelText("대량 등록 JSON"), {
+      target: { value: JSON.stringify(importItems) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "대량 등록" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/admin/assets/import",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ items: importItems }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("2개 에셋을 등록했습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("대시보드 히어로 레퍼런스")).toBeInTheDocument();
+  });
+
   it("resolves an open report and lists audit logs", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

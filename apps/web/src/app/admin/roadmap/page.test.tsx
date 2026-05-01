@@ -18,5 +18,6 @@ describe("RoadmapPage", () => {
     expect(screen.getByText("생성 요청 큐 -> inbox 에셋 worker 연결")).toBeInTheDocument();
     expect(screen.getByText("OpenAI GPT Image provider 호출부")).toBeInTheDocument();
     expect(screen.getByText("관리자 에셋 메타데이터 편집")).toBeInTheDocument();
+    expect(screen.getByText("이미지 대량 등록/import")).toBeInTheDocument();
   });
 });

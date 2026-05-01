@@ -12,10 +12,13 @@ from vaultix_api.deps import get_db
 from vaultix_api.main import app
 from vaultix_api.models.core import (
     Asset,
+    AssetTag,
+    Category,
     AssetGenerationRequest,
     AssetReport,
     AuditLog,
     Session as UserSession,
+    Tag,
     User,
 )
 from vaultix_api.services.passwords import hash_password
@@ -187,6 +190,59 @@ def test_admin_can_edit_asset_metadata_and_writes_audit_log(client: TestClient):
         assert audit.target_type == "asset"
         assert audit.target_id == 101
         assert audit.metadata_json == '{"changed":["alt_text","description","slug","title"]}'
+
+
+def test_admin_can_bulk_import_image_assets_with_categories_and_tags(client: TestClient):
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.post(
+        "/api/v1/admin/assets/import",
+        json={
+            "items": [
+                {
+                    "slug": "dashboard-hero-reference",
+                    "title": "대시보드 히어로 레퍼런스",
+                    "description": "SaaS 랜딩 페이지에 쓰기 좋은 히어로 이미지",
+                    "alt_text": "밝은 배경의 SaaS 대시보드 히어로 이미지",
+                    "file_path": "/cdn/original/dashboard-hero.png",
+                    "thumbnail_path": "/cdn/thumb/dashboard-hero.webp",
+                    "preview_path": "/cdn/preview/dashboard-hero.webp",
+                    "mime_type": "image/png",
+                    "category": {"slug": "saas", "name": "SaaS"},
+                    "tags": [{"slug": "hero", "name": "히어로"}, {"slug": "dashboard", "name": "대시보드"}],
+                },
+                {
+                    "slug": "newsletter-card-reference",
+                    "title": "뉴스레터 카드 레퍼런스",
+                    "description": "업무 생산성 뉴스레터에 어울리는 카드 이미지",
+                    "alt_text": "뉴스레터 카드형 레퍼런스 이미지",
+                    "file_path": "/cdn/original/newsletter-card.png",
+                    "category": {"slug": "marketing", "name": "마케팅"},
+                    "tags": [{"slug": "newsletter", "name": "뉴스레터"}],
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["created_count"] == 2
+    assert [asset["slug"] for asset in response.json()["data"]["assets"]] == [
+        "dashboard-hero-reference",
+        "newsletter-card-reference",
+    ]
+    with client.app.state.test_sessionmaker() as session:
+        dashboard = session.query(Asset).filter(Asset.slug == "dashboard-hero-reference").one()
+        newsletter = session.query(Asset).filter(Asset.slug == "newsletter-card-reference").one()
+        saas = session.query(Category).filter(Category.slug == "saas").one()
+        marketing = session.query(Category).filter(Category.slug == "marketing").one()
+        tags = {tag.slug: tag for tag in session.query(Tag).all()}
+        audit = session.query(AuditLog).filter(AuditLog.action == "asset.bulk_imported").one()
+        assert dashboard.status == "inbox"
+        assert dashboard.category_id == saas.id
+        assert newsletter.category_id == marketing.id
+        assert {"hero", "dashboard", "newsletter"}.issubset(tags)
+        assert session.query(AssetTag).filter(AssetTag.asset_id == dashboard.id).count() == 2
+        assert audit.metadata_json == '{"created_count":2,"slugs":["dashboard-hero-reference","newsletter-card-reference"]}'
 
 
 def test_asset_report_is_created_and_visible_to_admin(client: TestClient):

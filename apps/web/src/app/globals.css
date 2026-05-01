@@ -973,6 +973,38 @@ input {
   padding: 0 16px;
 }
 
+.admin-import-form {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-import-form label {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-import-form textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  padding: 12px;
+}
+
+.admin-import-form button {
+  justify-self: start;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+  padding: 0 16px;
+}
+
 .admin-row {
   min-height: 64px;
   border: 1px solid var(--border);

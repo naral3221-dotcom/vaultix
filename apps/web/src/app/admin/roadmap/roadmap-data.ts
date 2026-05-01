@@ -58,18 +58,19 @@ export const roadmapPhases: RoadmapPhase[] = [
     id: "Phase 3",
     title: "이미지 공급 파이프라인",
     status: "active",
-    progress: 55,
+    progress: 70,
     completed: [
       "이미지 라우팅 정책 확정",
       "생성 요청 큐 -> inbox 에셋 worker 연결",
       "OpenAI GPT Image provider 호출부",
       "관리자 에셋 메타데이터 편집",
+      "이미지 대량 등록/import",
     ],
     inProgress: ["실제 운영 API 키 설정과 생성 결과 저장소 연결"],
     next: [
-      "이미지 대량 등록/import",
       "프롬프트 템플릿과 결과 검수",
       "썸네일/WebP 변환",
+      "카탈로그 탐색 품질 개선",
     ],
   },
   {
@@ -85,5 +86,5 @@ export const roadmapPhases: RoadmapPhase[] = [
 
 export const roadmapSummary = {
   current: "현재 진행: Phase 3 이미지 공급 파이프라인",
-  nextDecision: "다음 큰 결정: 이미지 대량 축적을 위한 import 방식과 저장소 확정",
+  nextDecision: "다음 큰 결정: 생성/등록 이미지를 안정적으로 보관하고 썸네일/WebP로 가공",
 };

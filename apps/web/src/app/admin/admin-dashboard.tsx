@@ -41,6 +41,10 @@ type GenerationRequest = {
   result_asset_id: number | null;
 };
 
+type AssetImportPayload = {
+  items: unknown[];
+};
+
 type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function AdminDashboard() {
@@ -52,7 +56,9 @@ export function AdminDashboard() {
   const [message, setMessage] = useState<string | null>(null);
   const [generationPrompt, setGenerationPrompt] = useState("");
   const [generationNotes, setGenerationNotes] = useState("");
+  const [assetImportJson, setAssetImportJson] = useState("");
   const [isCreatingGenerationRequest, setIsCreatingGenerationRequest] = useState(false);
+  const [isImportingAssets, setIsImportingAssets] = useState(false);
 
   useEffect(() => {
     void loadAdminData();
@@ -160,6 +166,42 @@ export function AdminDashboard() {
     }
   }
 
+  async function bulkImportAssets(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+    let payload: AssetImportPayload;
+    try {
+      const parsed = JSON.parse(assetImportJson) as unknown;
+      payload = { items: Array.isArray(parsed) ? parsed : (parsed as AssetImportPayload).items };
+      if (!Array.isArray(payload.items) || payload.items.length === 0) {
+        setMessage("대량 등록 JSON은 1개 이상의 배열이어야 합니다.");
+        return;
+      }
+    } catch {
+      setMessage("대량 등록 JSON 형식이 올바르지 않습니다.");
+      return;
+    }
+
+    setIsImportingAssets(true);
+    try {
+      const response = await getAdminJson<{ data: { created_count: number; assets: AdminAsset[] } }>(
+        "/api/v1/admin/assets/import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      setAssets((current) => [...response.data.assets, ...current]);
+      setAssetImportJson("");
+      setMessage(`${response.data.created_count}개 에셋을 등록했습니다.`);
+    } catch {
+      setMessage("에셋 대량 등록에 실패했습니다.");
+    } finally {
+      setIsImportingAssets(false);
+    }
+  }
+
   async function startGenerationRequest(requestId: number) {
     setMessage(null);
     try {
@@ -257,6 +299,25 @@ export function AdminDashboard() {
           ))}
           {state === "ready" && assets.length === 0 ? <p className="admin-muted">검수 대기 에셋이 없습니다.</p> : null}
         </div>
+      </section>
+
+      <section className="admin-section" aria-label="에셋 대량 등록">
+        <div className="admin-section-heading">
+          <h2>에셋 대량 등록</h2>
+        </div>
+        <form className="admin-import-form" onSubmit={bulkImportAssets}>
+          <label htmlFor="asset-import-json">대량 등록 JSON</label>
+          <textarea
+            id="asset-import-json"
+            name="asset-import-json"
+            onChange={(event) => setAssetImportJson(event.target.value)}
+            rows={8}
+            value={assetImportJson}
+          />
+          <button type="submit" disabled={isImportingAssets}>
+            {isImportingAssets ? "등록 중" : "대량 등록"}
+          </button>
+        </form>
       </section>
 
       <section className="admin-section" aria-label="생성 요청 큐">
