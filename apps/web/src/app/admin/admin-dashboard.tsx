@@ -123,7 +123,7 @@ export function AdminDashboard() {
         body: JSON.stringify({
           prompt,
           asset_type: "image",
-          provider_preference: "nanobanana",
+          provider_preference: "openai",
           admin_notes: generationNotes.trim() || null,
         }),
       });

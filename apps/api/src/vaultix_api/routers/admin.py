@@ -30,7 +30,7 @@ class ReportStatusRequest(BaseModel):
 class GenerationRequestCreateRequest(BaseModel):
     prompt: str
     asset_type: str = "image"
-    provider_preference: str | None = "nanobanana"
+    provider_preference: str | None = "openai"
     admin_notes: str | None = None
 
 

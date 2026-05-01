@@ -58,9 +58,13 @@ export const roadmapPhases: RoadmapPhase[] = [
     id: "Phase 3",
     title: "AI 생성 파이프라인",
     status: "active",
-    progress: 25,
-    completed: ["이미지 라우팅 정책 확정", "생성 요청 큐 -> inbox 에셋 worker 연결"],
-    inProgress: ["실제 Nanobanana/OpenAI provider 호출부"],
+    progress: 40,
+    completed: [
+      "이미지 라우팅 정책 확정",
+      "생성 요청 큐 -> inbox 에셋 worker 연결",
+      "OpenAI GPT Image provider 호출부",
+    ],
+    inProgress: ["실제 운영 API 키 설정과 생성 결과 저장소 연결"],
     next: [
       "Celery 작업 큐",
       "프롬프트 템플릿과 결과 검수",
@@ -80,5 +84,5 @@ export const roadmapPhases: RoadmapPhase[] = [
 
 export const roadmapSummary = {
   current: "현재 진행: Phase 3 AI 생성 파이프라인",
-  nextDecision: "다음 큰 결정: 실제 Nanobanana/OpenAI provider 호출부를 붙이고 비동기 worker로 분리",
+  nextDecision: "다음 큰 결정: OpenAI 생성 결과 저장소를 확정하고 비동기 worker로 분리",
 };

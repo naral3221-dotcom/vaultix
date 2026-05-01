@@ -30,11 +30,11 @@ describe("AdminDashboard", () => {
         if (url.includes("/api/v1/admin/generation-requests")) {
           return response(200, {
             data: [
-              {
-                id: 1,
-                prompt: "업무 보고서용 미니멀 아이콘 세트",
-                asset_type: "icon_set",
-                provider_preference: "openai",
+            {
+              id: 1,
+              prompt: "업무 보고서용 미니멀 아이콘 세트",
+              asset_type: "icon_set",
+              provider_preference: "openai",
                 status: "queued",
                 admin_notes: "검수 대기",
                 result_asset_id: null,
@@ -193,7 +193,7 @@ describe("AdminDashboard", () => {
             id: 1,
             prompt: "상품 상세페이지 히어로 이미지",
             asset_type: "image",
-            provider_preference: "nanobanana",
+            provider_preference: "openai",
             status: "queued",
             admin_notes: "우선순위 높음",
             result_asset_id: null,
@@ -220,7 +220,7 @@ describe("AdminDashboard", () => {
           body: JSON.stringify({
             prompt: "상품 상세페이지 히어로 이미지",
             asset_type: "image",
-            provider_preference: "nanobanana",
+            provider_preference: "openai",
             admin_notes: "우선순위 높음",
           }),
         }),
@@ -238,7 +238,7 @@ describe("AdminDashboard", () => {
             id: 1,
             prompt: "업무 보고서용 미니멀 아이콘 세트",
             asset_type: "image",
-            provider_preference: "nanobanana",
+            provider_preference: "openai",
             status: "completed",
             admin_notes: "생성 완료",
             result_asset_id: 102,
@@ -252,7 +252,7 @@ describe("AdminDashboard", () => {
               id: 1,
               prompt: "업무 보고서용 미니멀 아이콘 세트",
               asset_type: "image",
-              provider_preference: "nanobanana",
+              provider_preference: "openai",
               status: "queued",
               admin_notes: null,
               result_asset_id: null,

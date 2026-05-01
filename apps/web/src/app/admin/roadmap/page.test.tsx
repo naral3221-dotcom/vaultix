@@ -16,6 +16,6 @@ describe("RoadmapPage", () => {
     expect(screen.getByText("신고 처리와 감사 로그")).toBeInTheDocument();
     expect(screen.getByText("Google OAuth 로그인")).toBeInTheDocument();
     expect(screen.getByText("생성 요청 큐 -> inbox 에셋 worker 연결")).toBeInTheDocument();
-    expect(screen.getByText("실제 Nanobanana/OpenAI provider 호출부")).toBeInTheDocument();
+    expect(screen.getByText("OpenAI GPT Image provider 호출부")).toBeInTheDocument();
   });
 });

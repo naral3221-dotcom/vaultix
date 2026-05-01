@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     mail_from: str = Field(default="", validation_alias="MAIL_FROM")
     turnstile_secret_key: str = Field(default="", validation_alias="TURNSTILE_SECRET_KEY")
     admin_emails: str = Field(default="", validation_alias="ADMIN_EMAILS")
+    openai_api_key: str = Field(default="", validation_alias="OPENAI_API_KEY")
+    openai_image_model: str = Field(default="gpt-image-1.5", validation_alias="OPENAI_IMAGE_MODEL")
+    generated_asset_dir: str = Field(default="/tmp/vaultix-generated", validation_alias="GENERATED_ASSET_DIR")
 
 
 @lru_cache
