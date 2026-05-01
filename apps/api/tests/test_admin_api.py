@@ -1,8 +1,10 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -127,6 +129,8 @@ def test_admin_can_list_inbox_assets(client: TestClient):
             "title": "검수 대기 에셋",
             "description": "관리자 검수 대기",
             "alt_text": "검수 대기",
+            "thumbnail_path": None,
+            "preview_path": None,
             "status": "inbox",
             "asset_type": "image",
             "download_count": 0,
@@ -175,6 +179,8 @@ def test_admin_can_edit_asset_metadata_and_writes_audit_log(client: TestClient):
         "title": "미니멀 대시보드 레퍼런스",
         "description": "SaaS 관리자 화면에 쓰기 좋은 이미지",
         "alt_text": "밝은 배경의 미니멀 대시보드 이미지",
+        "thumbnail_path": None,
+        "preview_path": None,
         "status": "inbox",
         "asset_type": "image",
         "download_count": 0,
@@ -243,6 +249,31 @@ def test_admin_can_bulk_import_image_assets_with_categories_and_tags(client: Tes
         assert {"hero", "dashboard", "newsletter"}.issubset(tags)
         assert session.query(AssetTag).filter(AssetTag.asset_id == dashboard.id).count() == 2
         assert audit.metadata_json == '{"created_count":2,"slugs":["dashboard-hero-reference","newsletter-card-reference"]}'
+
+
+def test_admin_can_generate_asset_thumbnail_and_preview(client: TestClient, tmp_path: Path):
+    source = tmp_path / "original" / "pending-asset.png"
+    source.parent.mkdir()
+    Image.new("RGB", (1400, 900), color=(120, 30, 80)).save(source)
+    with client.app.state.test_sessionmaker() as session:
+        asset = session.get(Asset, 101)
+        asset.file_path = str(source)
+        asset.thumbnail_path = None
+        asset.preview_path = None
+        session.commit()
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.post("/api/v1/admin/assets/101/derivatives")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["thumbnail_path"] == str(tmp_path / "thumb" / "pending-asset.webp")
+    assert response.json()["data"]["preview_path"] == str(tmp_path / "preview" / "pending-asset.webp")
+    with client.app.state.test_sessionmaker() as session:
+        asset = session.get(Asset, 101)
+        audit = session.query(AuditLog).filter(AuditLog.action == "asset.derivatives_generated").one()
+        assert asset.thumbnail_path == str(tmp_path / "thumb" / "pending-asset.webp")
+        assert asset.preview_path == str(tmp_path / "preview" / "pending-asset.webp")
+        assert audit.target_id == 101
 
 
 def test_asset_report_is_created_and_visible_to_admin(client: TestClient):

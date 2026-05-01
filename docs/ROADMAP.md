@@ -9,7 +9,7 @@ Last updated: 2026-05-01
 | Phase 0 | Done | 100% | VPS, Docker Compose, PostgreSQL, Redis, API/Web baseline, Tailnet nginx |
 | Phase 1 | Done | 100% | Public catalog, account flow, download links, Resend/Turnstile abuse checks |
 | Phase 2 | Done | 100% | Admin operation, reports, audit logs, roadmap visibility, Google OAuth, generation queue MVP |
-| Phase 3 | Active | 70% | Image supply pipeline, bulk import, admin metadata editing, OpenAI GPT Image provider path |
+| Phase 3 | Active | 85% | Image supply pipeline, bulk import, thumbnail/WebP processing, OpenAI GPT Image provider path |
 | Phase 4 | Later | 0% | SEO, analytics, monitoring, backups |
 
 ## Current Phase
@@ -27,16 +27,17 @@ Completed:
 - OpenAI GPT Image provider call path
 - Admin asset metadata editing before publish
 - Bulk image import/registration
+- Thumbnail/WebP processing
 
 In progress:
-- Production API key setup and generated asset storage
+- Production API key setup and generated asset storage confirmation
 
 Next:
 - Prompt templates and result review
-- Thumbnail/WebP processing
 - Catalog discovery quality improvements
+- Async worker separation
 
 ## Next Major Milestone
 
 Set `OPENAI_API_KEY` in the VPS environment and confirm generated file storage.
-After that, add thumbnail/WebP processing and strengthen catalog discovery so Vaultix can grow the curated reference library without slowing review.
+After that, run the real generate -> derivative -> review -> publish flow end to end, then strengthen catalog discovery so Vaultix can grow the curated reference library without slowing review.

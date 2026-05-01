@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -8,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from vaultix_api.deps import CurrentUser, get_db, problem, require_admin_user
 from vaultix_api.models.core import Asset, AssetGenerationRequest, AssetReport, AssetTag, AuditLog, Category, Tag
+from vaultix_api.services.image_derivatives import create_image_derivatives
 from vaultix_api.services.generation_worker import process_generation_request
+from vaultix_api.settings import get_settings
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -77,6 +80,8 @@ def admin_asset_to_dict(asset: Asset) -> dict[str, object]:
         "title": asset.title_ko,
         "description": asset.description_ko,
         "alt_text": asset.alt_text_ko,
+        "thumbnail_path": asset.thumbnail_path,
+        "preview_path": asset.preview_path,
         "status": asset.status,
         "asset_type": asset.asset_type,
         "download_count": asset.download_count,
@@ -256,6 +261,50 @@ def bulk_import_assets(
     }
 
 
+@router.post("/assets/{asset_id}/derivatives")
+def generate_asset_derivatives(
+    asset_id: int,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    asset = db.get(Asset, asset_id)
+    if asset is None:
+        raise problem(404, "asset_not_found", "Asset not found", "에셋을 찾을 수 없습니다.")
+    if asset.file_path is None:
+        raise problem(400, "asset_file_missing", "Asset file missing", "원본 파일 경로가 없습니다.")
+
+    source_path, public_url_prefix = _resolve_asset_source_path(asset.file_path)
+    try:
+        result = create_image_derivatives(
+            source_path=source_path,
+            slug=asset.slug,
+            public_url_prefix=public_url_prefix,
+        )
+    except FileNotFoundError:
+        raise problem(404, "asset_file_not_found", "Asset file not found", "원본 파일을 찾을 수 없습니다.") from None
+
+    asset.thumbnail_path = result.thumbnail_url
+    asset.preview_path = result.preview_url
+    db.add(
+        AuditLog(
+            id=int(db.query(func.coalesce(func.max(AuditLog.id), 0)).scalar() or 0) + 1,
+            actor_user_id=admin.id,
+            action="asset.derivatives_generated",
+            target_type="asset",
+            target_id=asset.id,
+            metadata_json=json.dumps(
+                {"preview_path": asset.preview_path, "thumbnail_path": asset.thumbnail_path},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+    )
+    db.commit()
+    db.refresh(asset)
+    return {"data": admin_asset_to_dict(asset)}
+
+
 @router.patch("/assets/{asset_id}")
 def update_asset_metadata(
     asset_id: int,
@@ -313,6 +362,13 @@ def update_asset_metadata(
     db.commit()
     db.refresh(asset)
     return {"data": admin_asset_to_dict(asset)}
+
+
+def _resolve_asset_source_path(file_path: str) -> tuple[str, str | None]:
+    if file_path.startswith("/cdn/"):
+        relative = file_path.removeprefix("/cdn/")
+        return str(Path(get_settings().asset_public_dir) / relative), "/cdn"
+    return file_path, None
 
 
 @router.get("/reports")

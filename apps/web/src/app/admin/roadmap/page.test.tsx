@@ -19,5 +19,6 @@ describe("RoadmapPage", () => {
     expect(screen.getByText("OpenAI GPT Image provider 호출부")).toBeInTheDocument();
     expect(screen.getByText("관리자 에셋 메타데이터 편집")).toBeInTheDocument();
     expect(screen.getByText("이미지 대량 등록/import")).toBeInTheDocument();
+    expect(screen.getByText("썸네일/WebP 변환")).toBeInTheDocument();
   });
 });

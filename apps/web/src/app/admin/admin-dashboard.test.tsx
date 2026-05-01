@@ -263,6 +263,58 @@ describe("AdminDashboard", () => {
     expect(await screen.findByText("대시보드 히어로 레퍼런스")).toBeInTheDocument();
   });
 
+  it("generates image derivatives for an inbox asset", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.includes("/api/v1/admin/assets/101/derivatives")) {
+        return response(200, {
+          data: {
+            id: 101,
+            slug: "pending-asset",
+            title: "검수 대기 에셋",
+            description: "관리자 검수 대기",
+            alt_text: "검수 대기",
+            thumbnail_path: "/cdn/thumb/pending-asset.webp",
+            preview_path: "/cdn/preview/pending-asset.webp",
+            status: "inbox",
+            asset_type: "image",
+            download_count: 0,
+          },
+        });
+      }
+      if (url.includes("/api/v1/admin/assets")) {
+        return response(200, {
+          data: [
+            {
+              id: 101,
+              slug: "pending-asset",
+              title: "검수 대기 에셋",
+              description: "관리자 검수 대기",
+              alt_text: "검수 대기",
+              status: "inbox",
+              asset_type: "image",
+              download_count: 0,
+            },
+          ],
+        });
+      }
+      return response(200, { data: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminDashboard />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "파생 이미지 생성 101" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/admin/assets/101/derivatives",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByText("파생 이미지를 생성했습니다.")).toBeInTheDocument();
+  });
+
   it("resolves an open report and lists audit logs", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

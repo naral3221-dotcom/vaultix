@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", validation_alias="OPENAI_API_KEY")
     openai_image_model: str = Field(default="gpt-image-1.5", validation_alias="OPENAI_IMAGE_MODEL")
     generated_asset_dir: str = Field(default="/tmp/vaultix-generated", validation_alias="GENERATED_ASSET_DIR")
+    asset_public_dir: str = Field(
+        default="/var/lib/vaultix/assets/published",
+        validation_alias="ASSET_PUBLIC_DIR",
+    )
 
 
 @lru_cache

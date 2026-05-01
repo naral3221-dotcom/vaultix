@@ -1014,7 +1014,7 @@ input {
 }
 
 .asset-review-row {
-  grid-template-columns: minmax(180px, 0.7fr) 90px 90px 60px minmax(360px, 1.3fr) 70px;
+  grid-template-columns: minmax(180px, 0.7fr) 90px 90px 60px minmax(360px, 1.3fr) 70px 70px;
 }
 
 .admin-asset-edit-form {

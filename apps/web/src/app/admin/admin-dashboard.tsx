@@ -8,6 +8,8 @@ type AdminAsset = {
   title: string;
   description: string | null;
   alt_text: string | null;
+  thumbnail_path: string | null;
+  preview_path: string | null;
   status: string;
   asset_type: string;
   download_count: number;
@@ -132,6 +134,19 @@ export function AdminDashboard() {
       setMessage("메타데이터를 저장했습니다.");
     } catch {
       setMessage("메타데이터 저장에 실패했습니다.");
+    }
+  }
+
+  async function generateAssetDerivatives(assetId: number) {
+    setMessage(null);
+    try {
+      const payload = await getAdminJson<{ data: AdminAsset }>(`/api/v1/admin/assets/${assetId}/derivatives`, {
+        method: "POST",
+      });
+      setAssets((current) => current.map((asset) => (asset.id === assetId ? payload.data : asset)));
+      setMessage("파생 이미지를 생성했습니다.");
+    } catch {
+      setMessage("파생 이미지 생성에 실패했습니다.");
     }
   }
 
@@ -294,6 +309,13 @@ export function AdminDashboard() {
               </form>
               <button type="button" onClick={() => publishAsset(asset.id)}>
                 게시
+              </button>
+              <button
+                type="button"
+                aria-label={`파생 이미지 생성 ${asset.id}`}
+                onClick={() => generateAssetDerivatives(asset.id)}
+              >
+                WebP
               </button>
             </div>
           ))}
