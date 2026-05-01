@@ -20,6 +20,8 @@ describe("AdminDashboard", () => {
                 id: 101,
                 slug: "pending-asset",
                 title: "검수 대기 에셋",
+                description: "관리자 검수 대기",
+                alt_text: "검수 대기",
                 status: "inbox",
                 asset_type: "image",
                 download_count: 0,
@@ -74,6 +76,8 @@ describe("AdminDashboard", () => {
             id: 101,
             slug: "pending-asset",
             title: "검수 대기 에셋",
+            description: "관리자 검수 대기",
+            alt_text: "검수 대기",
             status: "published",
             asset_type: "image",
             download_count: 0,
@@ -87,6 +91,8 @@ describe("AdminDashboard", () => {
               id: 101,
               slug: "pending-asset",
               title: "검수 대기 에셋",
+              description: "관리자 검수 대기",
+              alt_text: "검수 대기",
               status: "inbox",
               asset_type: "image",
               download_count: 0,
@@ -115,6 +121,76 @@ describe("AdminDashboard", () => {
       ),
     );
     expect(await screen.findByText("published")).toBeInTheDocument();
+  });
+
+  it("edits inbox asset metadata before publishing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "PATCH" && url.includes("/api/v1/admin/assets/101")) {
+        return response(200, {
+          data: {
+            id: 101,
+            slug: "minimal-dashboard-reference",
+            title: "미니멀 대시보드 레퍼런스",
+            description: "SaaS 관리자 화면에 쓰기 좋은 이미지",
+            alt_text: "밝은 배경의 미니멀 대시보드 이미지",
+            status: "inbox",
+            asset_type: "image",
+            download_count: 0,
+          },
+        });
+      }
+      if (url.includes("/api/v1/admin/assets")) {
+        return response(200, {
+          data: [
+            {
+              id: 101,
+              slug: "pending-asset",
+              title: "검수 대기 에셋",
+              description: "관리자 검수 대기",
+              alt_text: "검수 대기",
+              status: "inbox",
+              asset_type: "image",
+              download_count: 0,
+            },
+          ],
+        });
+      }
+      return response(200, { data: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AdminDashboard />);
+
+    fireEvent.change(await screen.findByLabelText("제목 101"), {
+      target: { value: "미니멀 대시보드 레퍼런스" },
+    });
+    fireEvent.change(screen.getByLabelText("슬러그 101"), {
+      target: { value: "minimal-dashboard-reference" },
+    });
+    fireEvent.change(screen.getByLabelText("설명 101"), {
+      target: { value: "SaaS 관리자 화면에 쓰기 좋은 이미지" },
+    });
+    fireEvent.change(screen.getByLabelText("대체 텍스트 101"), {
+      target: { value: "밝은 배경의 미니멀 대시보드 이미지" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "메타데이터 저장 101" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/admin/assets/101",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            title: "미니멀 대시보드 레퍼런스",
+            slug: "minimal-dashboard-reference",
+            description: "SaaS 관리자 화면에 쓰기 좋은 이미지",
+            alt_text: "밝은 배경의 미니멀 대시보드 이미지",
+          }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("메타데이터를 저장했습니다.")).toBeInTheDocument();
   });
 
   it("resolves an open report and lists audit logs", async () => {

@@ -1,4 +1,5 @@
 import json
+import re
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -15,11 +16,19 @@ ASSET_STATUSES = {"inbox", "approved", "published", "rejected", "archived", "tak
 ASSET_TYPES = {"image", "pptx", "svg", "docx", "xlsx", "html", "lottie", "colorbook", "icon_set"}
 REPORT_STATUSES = {"open", "resolved", "dismissed"}
 GENERATION_REQUEST_STATUSES = {"queued", "processing", "completed", "failed", "canceled"}
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class AssetStatusRequest(BaseModel):
     status: str
     reason: str | None = None
+
+
+class AssetMetadataRequest(BaseModel):
+    slug: str
+    title: str
+    description: str | None = None
+    alt_text: str | None = None
 
 
 class ReportStatusRequest(BaseModel):
@@ -44,6 +53,8 @@ def admin_asset_to_dict(asset: Asset) -> dict[str, object]:
         "id": asset.id,
         "slug": asset.slug,
         "title": asset.title_ko,
+        "description": asset.description_ko,
+        "alt_text": asset.alt_text_ko,
         "status": asset.status,
         "asset_type": asset.asset_type,
         "download_count": asset.download_count,
@@ -112,6 +123,65 @@ def update_asset_status(
         ),
     )
     db.add(audit)
+    db.commit()
+    db.refresh(asset)
+    return {"data": admin_asset_to_dict(asset)}
+
+
+@router.patch("/assets/{asset_id}")
+def update_asset_metadata(
+    asset_id: int,
+    payload: AssetMetadataRequest,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_admin_user),
+) -> dict[str, object]:
+    slug = payload.slug.strip()
+    title = payload.title.strip()
+    description = payload.description.strip() if payload.description is not None else None
+    alt_text = payload.alt_text.strip() if payload.alt_text is not None else None
+
+    if len(title) < 2:
+        raise problem(400, "validation_error", "Validation error", "제목은 2자 이상 입력해 주세요.")
+    if not SLUG_PATTERN.fullmatch(slug):
+        raise problem(400, "validation_error", "Validation error", "슬러그는 영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.")
+
+    asset = db.get(Asset, asset_id)
+    if asset is None:
+        raise problem(404, "asset_not_found", "Asset not found", "에셋을 찾을 수 없습니다.")
+
+    slug_owner = db.query(Asset).filter(Asset.slug == slug, Asset.id != asset.id).first()
+    if slug_owner is not None:
+        raise problem(409, "slug_conflict", "Slug conflict", "이미 사용 중인 슬러그입니다.")
+
+    changed = []
+    if asset.slug != slug:
+        asset.slug = slug
+        changed.append("slug")
+    if asset.title_ko != title:
+        asset.title_ko = title
+        changed.append("title")
+    if asset.description_ko != description:
+        asset.description_ko = description
+        changed.append("description")
+    if asset.alt_text_ko != alt_text:
+        asset.alt_text_ko = alt_text
+        changed.append("alt_text")
+
+    db.add(
+        AuditLog(
+            id=int(db.query(func.coalesce(func.max(AuditLog.id), 0)).scalar() or 0) + 1,
+            actor_user_id=admin.id,
+            action="asset.metadata_updated",
+            target_type="asset",
+            target_id=asset.id,
+            metadata_json=json.dumps(
+                {"changed": sorted(changed)},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+    )
     db.commit()
     db.refresh(asset)
     return {"data": admin_asset_to_dict(asset)}

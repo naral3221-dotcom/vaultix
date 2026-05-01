@@ -122,6 +122,8 @@ def test_admin_can_list_inbox_assets(client: TestClient):
             "id": 101,
             "slug": "pending-asset",
             "title": "검수 대기 에셋",
+            "description": "관리자 검수 대기",
+            "alt_text": "검수 대기",
             "status": "inbox",
             "asset_type": "image",
             "download_count": 0,
@@ -148,6 +150,43 @@ def test_admin_can_change_asset_status_and_writes_audit_log(client: TestClient):
         assert audit.target_type == "asset"
         assert audit.target_id == 101
         assert audit.metadata_json == '{"from":"inbox","reason":"검수 완료","to":"published"}'
+
+
+def test_admin_can_edit_asset_metadata_and_writes_audit_log(client: TestClient):
+    client.cookies.set("vaultix.session", "admin-session")
+
+    response = client.patch(
+        "/api/v1/admin/assets/101",
+        json={
+            "slug": "minimal-dashboard-reference",
+            "title": "미니멀 대시보드 레퍼런스",
+            "description": "SaaS 관리자 화면에 쓰기 좋은 이미지",
+            "alt_text": "밝은 배경의 미니멀 대시보드 이미지",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "id": 101,
+        "slug": "minimal-dashboard-reference",
+        "title": "미니멀 대시보드 레퍼런스",
+        "description": "SaaS 관리자 화면에 쓰기 좋은 이미지",
+        "alt_text": "밝은 배경의 미니멀 대시보드 이미지",
+        "status": "inbox",
+        "asset_type": "image",
+        "download_count": 0,
+    }
+    with client.app.state.test_sessionmaker() as session:
+        asset = session.get(Asset, 101)
+        audit = session.query(AuditLog).filter(AuditLog.action == "asset.metadata_updated").one()
+        assert asset.slug == "minimal-dashboard-reference"
+        assert asset.title_ko == "미니멀 대시보드 레퍼런스"
+        assert asset.description_ko == "SaaS 관리자 화면에 쓰기 좋은 이미지"
+        assert asset.alt_text_ko == "밝은 배경의 미니멀 대시보드 이미지"
+        assert audit.actor_user_id == 1
+        assert audit.target_type == "asset"
+        assert audit.target_id == 101
+        assert audit.metadata_json == '{"changed":["alt_text","description","slug","title"]}'
 
 
 def test_asset_report_is_created_and_visible_to_admin(client: TestClient):

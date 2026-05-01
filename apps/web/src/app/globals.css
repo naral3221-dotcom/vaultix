@@ -981,6 +981,42 @@ input {
   padding: 10px 12px;
 }
 
+.asset-review-row {
+  grid-template-columns: minmax(180px, 0.7fr) 90px 90px 60px minmax(360px, 1.3fr) 70px;
+}
+
+.admin-asset-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-asset-edit-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-asset-edit-form input,
+.admin-asset-edit-form textarea {
+  width: 100%;
+  min-height: 36px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.admin-asset-edit-form textarea {
+  grid-column: auto;
+}
+
+.admin-asset-edit-form button {
+  grid-column: 1 / -1;
+}
+
 .generation-row {
   grid-template-columns: minmax(260px, 1fr) 100px 120px 100px minmax(160px, 0.4fr);
 }

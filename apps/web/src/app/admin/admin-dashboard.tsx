@@ -6,6 +6,8 @@ type AdminAsset = {
   id: number;
   slug: string;
   title: string;
+  description: string | null;
+  alt_text: string | null;
   status: string;
   asset_type: string;
   download_count: number;
@@ -107,6 +109,26 @@ export function AdminDashboard() {
     }
   }
 
+  async function updateAssetMetadata(assetId: number, formData: FormData) {
+    setMessage(null);
+    try {
+      const payload = await getAdminJson<{ data: AdminAsset }>(`/api/v1/admin/assets/${assetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: String(formData.get("title") ?? "").trim(),
+          slug: String(formData.get("slug") ?? "").trim(),
+          description: String(formData.get("description") ?? "").trim() || null,
+          alt_text: String(formData.get("alt_text") ?? "").trim() || null,
+        }),
+      });
+      setAssets((current) => current.map((asset) => (asset.id === assetId ? payload.data : asset)));
+      setMessage("메타데이터를 저장했습니다.");
+    } catch {
+      setMessage("메타데이터 저장에 실패했습니다.");
+    }
+  }
+
   async function createGenerationRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const prompt = generationPrompt.trim();
@@ -196,7 +218,7 @@ export function AdminDashboard() {
         </div>
         <div className="admin-table">
           {assets.map((asset) => (
-            <div className="admin-row" key={asset.id}>
+            <div className="admin-row asset-review-row" key={asset.id}>
               <div>
                 <strong>{asset.title}</strong>
                 <span>{asset.slug}</span>
@@ -204,6 +226,30 @@ export function AdminDashboard() {
               <span>{asset.status}</span>
               <span>{asset.asset_type}</span>
               <span>{asset.download_count}</span>
+              <form
+                className="admin-asset-edit-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void updateAssetMetadata(asset.id, new FormData(event.currentTarget));
+                }}
+              >
+                <label htmlFor={`asset-title-${asset.id}`}>제목 {asset.id}</label>
+                <input id={`asset-title-${asset.id}`} name="title" required defaultValue={asset.title} />
+                <label htmlFor={`asset-slug-${asset.id}`}>슬러그 {asset.id}</label>
+                <input id={`asset-slug-${asset.id}`} name="slug" required defaultValue={asset.slug} />
+                <label htmlFor={`asset-description-${asset.id}`}>설명 {asset.id}</label>
+                <textarea
+                  defaultValue={asset.description ?? ""}
+                  id={`asset-description-${asset.id}`}
+                  name="description"
+                  rows={2}
+                />
+                <label htmlFor={`asset-alt-text-${asset.id}`}>대체 텍스트 {asset.id}</label>
+                <input id={`asset-alt-text-${asset.id}`} name="alt_text" defaultValue={asset.alt_text ?? ""} />
+                <button type="submit" aria-label={`메타데이터 저장 ${asset.id}`}>
+                  저장
+                </button>
+              </form>
               <button type="button" onClick={() => publishAsset(asset.id)}>
                 게시
               </button>
