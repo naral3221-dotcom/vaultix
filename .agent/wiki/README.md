@@ -4,7 +4,9 @@ project_type: monorepo
 primary_languages: [Python, TypeScript]
 tech_stack: [FastAPI, Next.js, PostgreSQL, Redis, Celery, Docker Compose, Tailwind, shadcn/ui, Auth.js v5, Alembic, SQLAlchemy]
 domain: AI 생산성 에셋 허브 — 한국어 이미지 자산 카탈로그 및 자동 생성 파이프라인
-schema_version: "1.0"
+domain_tags: ['AI', '워크플로우', '생산성', '한국', '미디어']
+tech_tags: ['nextjs', 'postgres', 'redis', 'fastapi', 'tailwind', 'shadcn', 'docker']
+schema_version: "1.1"
 last_updated: 2026-05-14T04:24:07+09:00
 ---
 
