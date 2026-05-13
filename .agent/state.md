@@ -1,17 +1,19 @@
 # Project State — Vaultix
 
-> 마지막 업데이트: 2026-05-14T04:24:07+09:00
+> 마지막 업데이트: 2026-05-14T04:42:00+09:00
 > 마지막 압축: 없음
 
 ## 현재 작업
 
 - **Phase**: Phase 3 (Active, 85%) — 이미지 공급 파이프라인
-- **수정 중 파일**: 없음 (초기화 시점)
-- **사용자 마지막 지시 (원문)**: "/agent-init"
+- **수정 중 파일**: README.md, VERSION (방금 갱신 완료), `.agent/state.md` / `log.md` / `wiki/decisions.md` / `wiki/conventions.md`
+- **사용자 마지막 지시 (원문)**: "왠만해서는 깃허브 안쓸꺼야 vault를 쓸꺼고 vault에 버전이랑 remade잘 써놔"
 
 ## 중요 결정 (되돌리기 어렵거나 영향 큼)
 
 - [2026-05-14] `.agent/` 메모리 인프라 초기화 (`/agent-init` 수동 실행). 이후 `state.md` / `log.md` / `wiki/` 가 모든 후속 작업의 단일 진실 공급원.
+- [2026-05-14] **vault (`http://100.116.156.37:9006/jh97/vaultix.git`) 가 디폴트 remote, `origin` 으로 설정**. 기존 GitHub remote 는 `github` 로 백업·강등. 사용자 명시: "왠만해서는 깃허브 안 쓸 거고 vault 쓸 거". 향후 모든 `git push` 는 vault 로.
+- [2026-05-14] 모노레포 루트 `VERSION` 파일 신설 (`0.1.0`). `apps/api/pyproject.toml` 과 `apps/web/package.json` 의 `version` 과 동기화. MVP 완료 시 `1.0.0` 으로 bump.
 
 ## 미해결 질문·블로커
 

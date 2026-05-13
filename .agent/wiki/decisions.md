@@ -16,8 +16,10 @@ last_updated: 2026-05-14T04:24:07+09:00
 
 | ID | 결정 | 일자 |
 |---|---|---|
-| Brand | 최종 프로젝트명 **Vaultix**. GitHub: `https://github.com/naral3221-dotcom/vaultix.git`. 이전 명칭 (`image-web-project`, "AI 콘텐츠 허브") 은 역사 문서. | 2026-04-29 |
+| Brand | 최종 프로젝트명 **Vaultix**. 이전 명칭 (`image-web-project`, "AI 콘텐츠 허브") 은 역사 문서. | 2026-04-29 |
 | Identifier | 코드/인프라 식별자 = `vaultix`. Python 패키지명 = `vaultix_api`. Docker prefix = `vaultix-`. Network = `vaultix_internal`. 호스트 경로 = `/var/lib/vaultix/...`. | 2026-04-29 |
+| Remote-Default | **`origin` = vault** (`http://100.116.156.37:9006/jh97/vaultix.git`, self-hosted Gitea on Tailscale). GitHub 은 `github` remote 로 백업·강등. 모든 `git push` 의 디폴트 = vault. 사용자 명시 ("왠만해서는 깃허브 안 쓸 거"). 자동 미러 cron 은 forge setup 으로 별도 설치 가능. | 2026-05-14 |
+| Versioning | 모노레포 루트 `VERSION` 파일이 단일 진실 공급원. `apps/api/pyproject.toml` 과 `apps/web/package.json` 의 `version` 은 이 값과 동기화. 현재 = `0.1.0`. MVP 완료 시 `1.0.0` bump. | 2026-05-14 |
 
 ## 범위 (Scope)
 

@@ -59,6 +59,23 @@ last_updated: 2026-05-14T04:24:07+09:00
   - `feat: use openai image generation provider`
 - **PR 분석**: 마지막 커밋이 아니라 *전체 커밋 히스토리* 를 본다 (`git diff [base]...HEAD`).
 
+## Git Remote
+
+- **`origin` = vault** (디폴트). URL: `http://100.116.156.37:9006/jh97/vaultix.git`. Tailscale 안에서만 접근 가능 (외부 노출 0).
+- **`github` = 백업** (강등). URL: `git@github.com:naral3221-dotcom/vaultix.git`. 거의 사용 안 함. 명시 요청 시에만 `git push github main`.
+- **새 커밋의 디폴트 push 대상 = vault**. 코드 변경 후 `git push` 만 입력하면 vault 로 감.
+- **재해 복구 (vault 장애 시)**: forge setup 스크립트로 자동 미러 cron (`매일 04:13 vault → github`) 설치 가능. 글로벌 룰 `rules/vault.md` 참조.
+- **vault repo 자동 생성**: 첫 push 시 Gitea 가 없는 repo 를 자동 생성 (private 기본). 본 프로젝트는 이미 생성됨 (`9bff8b3` 커밋 push 완료).
+- **인증**: `credential.helper = store` 로 `~/.git-credentials` 에 자격 저장. PAT 권장 (Gitea 웹 UI 의 `user/settings/applications` 에서 발급).
+
+## 버전 (Versioning)
+
+- **단일 진실 공급원**: 모노레포 루트 `VERSION` 파일.
+- **동기화 대상**: `apps/api/pyproject.toml` 의 `version`, `apps/web/package.json` 의 `version`. 셋이 항상 같아야 함.
+- **현재**: `0.1.0` (Pre-MVP).
+- **bump 시점**: MVP (Phase 0 + Phase 1) 완료 → `1.0.0`. 그 전까지 `0.x.y` 유지.
+- **버전 bump 절차**: 루트 `VERSION` 수정 → `pyproject.toml` / `package.json` 동기화 → 커밋 메시지에 `chore(release): bump VERSION to X.Y.Z`.
+
 ## 환경 변수
 
 - **`.env`** 는 절대 커밋 금지. **`.env.example`** 만 커밋.
